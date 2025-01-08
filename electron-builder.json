@@ -1,7 +1,12 @@
 {
-    "appId": "com.mantragor.one",
-    "files": ["dist-electron", "dist-react"],
-    "extraResources": ["dist-electron/preload.cjs"],
+    "appId": "com.mantragor.billsane",
+    "files": [
+        "dist-electron",
+        "dist-react"
+    ],
+    "extraResources": [
+        "dist-electron/preload.cjs"
+    ],
     "icon": "./desktop-icon.png",
     "mac": {
         "target": "dmg"
@@ -11,6 +16,9 @@
         "category": "Utility"
     },
     "win": {
-        "target": ["portable", "msi"]
+        "target": [
+            "portable",
+            "msi"
+        ]
     }
 }

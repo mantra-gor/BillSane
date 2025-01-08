@@ -26,24 +26,19 @@ function InvoiceCreate() {
     });
   };
 
-  // const calcTotals = useCallback(() => {
-  //   const totalTax = lineItems.reduce((sum, item) => sum + (item.tax ?? 0), 0);
-  //   const totalAmount = lineItems.reduce(
-  //     (sum, item) => sum + (item.subTotal ?? 0),
-  //     0
-  //   );
-  //   console.log(lineItems.reduce((sum, item) => sum + (item.tax ?? 0), 0));
-
-  //   setTotal(totalTax);
-  //   setTotalTax(totalAmount);
-  // }, [lineItems]);
-
-  const calcTotals = () => {
+  const calcTotals = (discount?: number) => {
     const totalTax = lineItems.reduce((sum, item) => sum + item.tax, 0);
-    const totalAmount = lineItems.reduce((sum, item) => sum + item.subTotal, 0);
-
+    const totalAmount =
+      lineItems.reduce((sum, item) => sum + item.subTotal, 0) -
+      (discount ? discount : 0);
     setTotalAmount(totalAmount);
     setTotalTax(totalTax);
+  };
+
+  const discountHandler = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const discount = parseFloat(e.target.value);
+    setTotalDiscount(discount);
+    calcTotals(discount);
   };
 
   useEffect(() => {
@@ -62,28 +57,30 @@ function InvoiceCreate() {
     );
   };
 
-  const calcTax = (index: number, rate: number, taxPer: number) => {
+  const calcTax = (
+    index: number,
+    qty: number,
+    rate: number,
+    taxPer: number
+  ) => {
     // Calculate the tax
-    const tax = (rate * taxPer) / 100;
+    const tax = (rate * qty * taxPer) / 100;
     // Update the line item with the calculated tax
     handleLineItemChange(index, "tax", tax);
     // calculate sub total
-    calcSubTotal(index, rate, tax);
+    calcSubTotal(index, rate, qty, tax);
   };
 
   const calcSubTotal = (
     index: number,
     rate: number,
-    tax: number,
-    discount?: number
+    qty: number,
+    tax: number
   ) => {
-    // Use the provided discount or fallback to the one from lineItems
-    const effectiveDiscount = discount ?? lineItems[index].discount;
-
     // Calculate the subtotal
-    const rateWithTax = rate + tax;
-    const discountedAmt = (rateWithTax * (effectiveDiscount || 0)) / 100;
-    const subTotal = rateWithTax - discountedAmt;
+    const rateWithTax = rate * qty + tax;
+
+    const subTotal = rateWithTax;
     // Update the line item with the calculated subtotal
     handleLineItemChange(index, "subTotal", subTotal);
   };
@@ -97,7 +94,7 @@ function InvoiceCreate() {
           <Input
             type="text"
             name="itemName"
-            placeholder={"Enter Name Here"}
+            placeholder={"Enter Product Name Here"}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
               handleLineItemChange(index, "itemName", e.target.value)
             }
@@ -114,11 +111,17 @@ function InvoiceCreate() {
           <Input
             type="number"
             name="rate"
+            min={0}
             placeholder={"Item Rate"}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
               const value = parseFloat(e.target.value); // Convert string to float
               handleLineItemChange(index, "rate", value); // Pass as number
-              calcTax(index, value, row.taxPer); // Pass as number
+              calcTax(index, value, row.qty, row.taxPer); // Pass as number
+            }}
+            onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+              if (e.key === "-" || e.key === "e" || e.key === "+") {
+                e.preventDefault();
+              }
             }}
             onWheel={(e) => (e.target as HTMLInputElement).blur()}
             required={true}
@@ -127,7 +130,33 @@ function InvoiceCreate() {
       ),
     },
     {
-      width: "140px",
+      width: "130px",
+      name: "Qty",
+      cell: (row: LineItem, index: number) => (
+        <div className="w-full">
+          <Input
+            type="number"
+            name="qty"
+            min={0}
+            placeholder={"Quantity"}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+              const value = parseFloat(e.target.value); // Convert string to float
+              handleLineItemChange(index, "qty", value); // Pass as number
+              calcTax(index, row.rate, value, row.taxPer); // Pass as number
+            }}
+            onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+              if (e.key === "-" || e.key === "e" || e.key === "+") {
+                e.preventDefault();
+              }
+            }}
+            onWheel={(e) => (e.target as HTMLInputElement).blur()}
+            required={true}
+          />
+        </div>
+      ),
+    },
+    {
+      width: "120px",
       name: "Tax Type",
       cell: (row: LineItem, index: number) => (
         <div className="w-full">
@@ -144,18 +173,25 @@ function InvoiceCreate() {
       ),
     },
     {
-      width: "170px",
+      width: "100px",
       name: "Tax (%)",
       cell: (row: LineItem, index: number) => (
         <div className="w-full">
           <Input
             type="number"
             name="taxPer"
+            min={0}
+            max={100}
             placeholder={"Tax per item (%)"}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
               const value = parseFloat(e.target.value); // Convert string to float
               handleLineItemChange(index, "taxPer", value); // Pass as number
-              calcTax(index, row.rate, value); // Pass as number
+              calcTax(index, row.qty, row.rate, value); // Pass as number
+            }}
+            onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+              if (e.key === "-" || e.key === "e" || e.key === "+") {
+                e.preventDefault();
+              }
             }}
             onWheel={(e) => (e.target as HTMLInputElement).blur()}
             required={true}
@@ -164,27 +200,7 @@ function InvoiceCreate() {
       ),
     },
     {
-      width: "170px",
-      name: "Discount (%)",
-      cell: (row: LineItem, index: number) => (
-        <div className="w-full">
-          <Input
-            type="number"
-            name="discount"
-            placeholder={"Discount per item"}
-            required={true}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-              const value = parseFloat(e.target.value); // Convert string to float
-              handleLineItemChange(index, "discount", value); // Pass as number
-              calcSubTotal(index, row.rate, row.tax, value); // Calc sub total
-            }}
-            onWheel={(e) => (e.target as HTMLInputElement).blur()}
-          />
-        </div>
-      ),
-    },
-    {
-      width: "130px",
+      width: "100px",
       name: "Tax",
       cell: (row: LineItem) => {
         return (
@@ -293,6 +309,14 @@ function InvoiceCreate() {
           </div>
           <div className="w-full flex justify-end">
             <div className="text-sm grid grid-cols-2 gap-y-3 gap-x-3 mt-6 items-center justify-items-end">
+              <div>Discount:</div>
+              <Input
+                type="number"
+                name="totalDiscount"
+                value={totalDiscount}
+                onChange={discountHandler}
+                placeholder={"Discount (optional)"}
+              />
               <div>Total Tax:</div>
               <Input
                 disabled={true}
@@ -301,14 +325,6 @@ function InvoiceCreate() {
                 value={totalTax}
                 placeholder={"Total Tax"}
               />
-              <div>Total Discount:</div>
-              <Input
-                disabled={true}
-                type="number"
-                name="totalDiscount"
-                value={totalDiscount}
-                placeholder={"Total Discount"}
-              />{" "}
               <div>Total Amount:</div>
               <Input
                 disabled={true}

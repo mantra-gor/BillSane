@@ -1,0 +1,52 @@
+@property --l {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 10%;
+}
+
+@property --c1 {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: red;
+}
+
+@property --c2 {
+  syntax: "<color>";
+  inherits: false;
+  initial-value: blue;
+}
+
+.box {
+  --l: 20%;
+  --c1: #f3f3f3;
+  --c2: #e0f2fe;
+
+  background-image: radial-gradient(var(--c1), #ffffff, #ffffff);
+  animation: gradientAnimation 6s ease-in-out infinite alternate;
+}
+
+@keyframes gradientAnimation {
+  0% {
+    --l: 20%;
+    --c1: #f3f3f3;
+    --c2: #bae6fd;
+  }
+  25% {
+    --l: 20%;
+    --c1: #ffe4e6;
+    --c2: #bae6fd;
+  }
+  50% {
+    --c1: #bae6fd;
+    --c2: #aee3ff;
+  }
+  75% {
+    --c1: #c4b5fd;
+    --c2: #f5d0fe;
+  }
+  100% {
+    --l: 60%;
+    --c1: #a5b4fc;
+    --c2: #d8b4fe;
+  }
+}

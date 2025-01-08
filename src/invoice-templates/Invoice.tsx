@@ -18,7 +18,7 @@ function Invoice() {
         year: "numeric",
       })
       .replace(",", ""),
-    invoice_no: "008601248",
+    invoice_no: "250700001",
     customer_details: {
       name: "Mantra Gor",
       phone: "+91 7778888999",
@@ -30,6 +30,7 @@ function Invoice() {
       {
         itemName: "DocuLens AI",
         rate: "500000",
+        qty: "2",
         discountPer: "6",
         discount: "30000",
         taxType: "GST",
@@ -40,6 +41,7 @@ function Invoice() {
       {
         itemName: "SmartOffice Pro",
         rate: "120000",
+        qty: "1",
         discountPer: "10",
         discount: "12000",
         taxType: "GST",
@@ -50,6 +52,7 @@ function Invoice() {
       {
         itemName: "EcoPrinter 3000",
         rate: "80000",
+        qty: "1",
         discountPer: "5",
         discount: "4000",
         taxType: "GST",
@@ -59,7 +62,8 @@ function Invoice() {
       },
       {
         itemName: "QuantumPad 12",
-        rate: "150000",
+        rate: "50000",
+        qty: "3",
         discountPer: "15",
         discount: "22500",
         taxType: "GST",
@@ -69,7 +73,8 @@ function Invoice() {
       },
       {
         itemName: "SmartTable 200",
-        rate: "250000",
+        rate: "50000",
+        qty: "5",
         discountPer: "8",
         discount: "20000",
         taxType: "GST",
@@ -130,6 +135,7 @@ function Invoice() {
               <th className="py-2 px-4 text-left text-sm text-gray-600">
                 Rate
               </th>
+              <th className="py-2 px-4 text-left text-sm text-gray-600">Qty</th>
               {/* <th className="py-2 px-4 text-left text-sm text-gray-600">
                 Discount (%)
               </th>
@@ -140,7 +146,7 @@ function Invoice() {
                 Tax Type
               </th> */}
               <th className="py-2 px-4 text-left text-sm text-gray-600">
-                Tax
+                Tax Rate
                 {/* (%) */}
               </th>
               <th className="py-2 px-4 text-left text-sm text-gray-600">Tax</th>
@@ -155,6 +161,7 @@ function Invoice() {
                 <td className="py-2 px-4 text-sm">{index + 1}</td>
                 <td className="py-2 px-4 text-sm">{item.itemName}</td>
                 <td className="py-2 px-4 text-sm">₹{item.rate}</td>
+                <td className="py-2 px-4 text-sm">{item.qty}</td>
                 {/* <td className="py-2 px-4 text-sm">{item.discountPer}</td> */}
                 {/* <td className="py-2 px-4 text-sm">{item.discount}</td> */}
                 {/* <td className="py-2 px-4 text-sm">{item.taxType}</td> */}

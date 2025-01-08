@@ -4,8 +4,48 @@
 
 body {
   overflow-x: hidden;
+  user-select: none;
 }
 
+.underlined1 {
+  position: relative;
+}
+.underline-clip1:after {
+  content: "";
+  position: absolute;
+  top: 90%;
+  width: 120%;
+  rotate: 48eg;
+  aspect-ratio: 3 / 1;
+  left: 50%;
+  transform: translate(-50%, 0);
+  border-radius: 50%;
+  border: 6px solid #d0a1eb;
+  /* Use a clip-path to hide and show the bits you want */
+  clip-path: polygon(0 0, 50% 50%, 100% 0);
+}
+
+.underlined2 {
+  position: relative;
+}
+.underline-clip2:after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  width: 150%;
+  rotate: 1deg;
+  aspect-ratio: 4 / 1;
+  left: 50%;
+  transform: translate(-50%, 0);
+  border-radius: 50%;
+  border: 6px solid #6842ffd3;
+  /* Use a clip-path to hide and show the bits you want */
+  clip-path: polygon(0 0, 50% 50%, 100% 0);
+}
+
+img {
+  -webkit-user-drag: none;
+}
 input::-webkit-outer-spin-button,
 input::-webkit-inner-spin-button {
   -webkit-appearance: none;

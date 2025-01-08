@@ -42,9 +42,11 @@ interface LineItem {
   discount?: number;
   taxType?: number;
   taxPer?: number;
+  qty?: number;
   tax?: number;
   total?: number;
   subTotal?: number;
+  discountAmount?: number;
 }
 
 interface Window {

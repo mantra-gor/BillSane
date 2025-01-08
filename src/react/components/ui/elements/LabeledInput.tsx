@@ -2,6 +2,7 @@ function LabeledInput({
   name,
   title,
   required = false,
+  className = "",
   onChange,
   ...rest
 }: LabeledInputProps) {
@@ -14,7 +15,7 @@ function LabeledInput({
       <input
         name={name}
         id={name}
-        className={`input-field`}
+        className={`input-field ${className}`}
         onChange={onChange}
         style={{
           boxShadow: " 0px -1px 1px 0px rgba(20, 20, 20, 0.1) inset",

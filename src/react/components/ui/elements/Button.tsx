@@ -20,7 +20,7 @@ const Button: React.FC<ButtonProps> = ({
       <button
         type={type}
         disabled={disabled}
-        className={`p-2 rounded-lg hover:drop-shadow-xl active:h-[calc(100% - 20px)] transition-all duration-300 ${active ? "bg-prussian_blue text-white" : "bg-primary-25"} ${className} `}
+        className={`p-2 rounded-lg hover:drop-shadow-xl cursor-pointer active:h-[calc(100% - 20px)] transition-all duration-300 ${active ? "bg-prussian_blue text-white" : "bg-primary-25"} ${className} `}
         onClick={onClick}
         {...rest}>
         {children}

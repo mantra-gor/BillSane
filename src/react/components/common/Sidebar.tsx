@@ -32,7 +32,7 @@ function Sidebar() {
       <div className="w-full flex justify-center">
         <img
           src={logo}
-          className="min-w-[180px] max-w-[200px] my-4"
+          className="min-w-[160px] max-w-[190px] my-4"
           alt="billsane-logo"
           loading="lazy"
         />
