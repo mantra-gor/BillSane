@@ -1,12 +1,21 @@
-import { useState } from "react";
+import { useForm } from "react-hook-form";
 import Button from "../components/ui/elements/Button";
-import LabeledInput from "../components/ui/elements/LabeledInput";
+import { useNavigate } from "react-router";
 
 function SignIn() {
-  const [loginCreds, setLoginCreds] = useState({
-    email: "",
-    password: "",
-  });
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm();
+
+  const navigate = useNavigate();
+
+  const onSubmit = (data: object) => {
+    console.log(data);
+    localStorage.setItem("isUserLoggedIn", "true");
+    navigate("/dashboard");
+  };
 
   return (
     <div className="w-10/12 mx-auto h-full mt-16">
@@ -24,25 +33,66 @@ function SignIn() {
           your billing
           <span className="mt-1"> and stay in control.</span>
         </h2>
-        <div className="space-y-4">
-          <LabeledInput
-            title="Email"
-            type="email"
-            className="!p-3 !shadow-md"
-            placeholder="john@example.com"
-            onChange={(e) => console.log(e)}
-          />
-          <LabeledInput
-            title="Password"
-            type="password"
-            className="!p-3 !shadow-md"
-            placeholder="************"
-            onChange={(e) => console.log(e)}
-          />
-          <Button className="w-full mt-6 !shadow-md active:brightness-110">
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          noValidate
+          className="space-y-4">
+          <div className="flex flex-col ">
+            <label htmlFor="email" className="mb-1">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              className={`input-field !p-3`}
+              placeholder="john@example.com"
+              {...register("email", {
+                required: "Email is required",
+                pattern: {
+                  value: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/,
+                  message: "Enter a valid email address",
+                },
+              })}
+              style={{
+                boxShadow: " 0px -1px 1px 0px rgba(20, 20, 20, 0.1) inset",
+              }}
+            />
+            {errors.email && (
+              <p className="text-red-500 text-sm p-1">{errors.email.message}</p>
+            )}
+          </div>
+          <div className="flex flex-col ">
+            <label htmlFor="password" className="mb-1">
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              className={`input-field !p-3`}
+              placeholder="**********"
+              {...register("password", {
+                required: "Password is required",
+                pattern: {
+                  value: /^.{8,}$/,
+                  message: "Password must be at least 8 characters long",
+                },
+              })}
+              style={{
+                boxShadow: " 0px -1px 1px 0px rgba(20, 20, 20, 0.1) inset",
+              }}
+            />
+            {errors.password && (
+              <p className="text-red-500 text-sm p-1">
+                {errors.password.message}
+              </p>
+            )}
+          </div>
+          <Button
+            type="submit"
+            className="w-full mt-6 !shadow-md active:brightness-110">
             Login
           </Button>
-        </div>
+        </form>
       </div>
     </div>
   );
