@@ -40,14 +40,20 @@ const customStyles = {
   },
 };
 
-function CustomDataTable({ columns, data }) {
+function CustomDataTable({
+  columns,
+  data,
+}: {
+  columns: object[];
+  data: object[];
+}) {
   return (
     <div className="rounded-lg overflow-clip shadow-md">
       <DataTable
         columns={columns}
         data={data}
         theme="solarized"
-        className="pb-2 bg-[#EBEBEB]"
+        className="pb-2 bg-[#EBEBEB] !md:h-[200px]"
         responsive
         customStyles={customStyles}
       />

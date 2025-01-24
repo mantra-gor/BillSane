@@ -25,12 +25,12 @@ function AuthLayout({ formType }: { formType: string }) {
           <div className="absolute flex flex-col gap-4 bottom-[20%] left-[10%] z-20 text-5xl text-white font-semibold tracking-wider">
             <div>Make Your</div>
             <div className="italic">Finances</div>
-            <div className="italic animate-bounce">Sane</div>
+            <div className="italic animate-bounce">Sane.</div>
           </div>
         </div>
       </div>
       <footer className="absolute left-0 bottom-0 w-7/12 text-center p-3 text-[#1b1b1b]">
-        © 2025 BillSane. All rights reserved.
+        © {new Date().getFullYear()} BillSane. All rights reserved.
       </footer>
     </div>
   );

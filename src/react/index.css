@@ -7,6 +7,20 @@ body {
   user-select: none;
 }
 
+.printContent {
+  display: none;
+
+  @media print {
+    display: block;
+  }
+}
+
+.hideContent {
+  @media print {
+    display: none !important;
+  }
+}
+
 .underlined1 {
   position: relative;
 }

@@ -7,6 +7,7 @@ function Settings() {
     { title: "Appearance", path: "appearance" },
     { title: "Configurations", path: "config" },
   ];
+
   return (
     <div className="w-full h-full p-6 rounded-2xl bg-white border shadow-xl">
       <h1 className="text-xl py-1 px-4 font-semibold">Settings</h1>

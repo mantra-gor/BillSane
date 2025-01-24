@@ -3,14 +3,37 @@ import CustomDataTable from "../components/ui/elements/CustomDataTable";
 import Input from "../components/ui/elements/Input";
 import LabeledInput from "../components/ui/elements/LabeledInput";
 import Button from "../components/ui/elements/Button";
+import upiIcon from "../assets/resources/upi-icon.png";
+import cardIcon from "../assets/resources/card-icon.png";
+import cashIcon from "../assets/resources/cash-icon.png";
+import { useNavigate } from "react-router";
 // import { useForm } from "react-hook-form";
 // import { DevTool } from "@hookform/devtools";
+
+type CustomerDetails = {
+  name: string;
+  phone: string;
+  email?: string;
+};
 
 function InvoiceCreate() {
   const lineItem: LineItem = {
     id: Date.now(),
   };
+  const navigate = useNavigate();
+  const [selectedPayment, setSelectedPayment] = useState("cash");
 
+  const paymentOptions = [
+    { id: "cash", label: "Cash", icon: cashIcon },
+    { id: "card", label: "Card", icon: cardIcon },
+    { id: "upi", label: "UPI", icon: upiIcon },
+  ];
+
+  const handleSelect = (id: string) => {
+    setSelectedPayment(id);
+  };
+
+  const [customerDetails, setCustomerDetails] = useState<CustomerDetails>();
   const [lineItems, setLineItems] = useState<LineItem[]>([lineItem]);
   const [totalAmount, setTotalAmount] = useState<number | undefined>();
   const [totalTax, setTotalTax] = useState<number | undefined>();
@@ -87,7 +110,7 @@ function InvoiceCreate() {
 
   const invoiceCols = [
     {
-      width: "350px",
+      minwidth: "350px",
       name: "Item Name",
       cell: (row: LineItem, index: number) => (
         <div className="w-full">
@@ -248,15 +271,32 @@ function InvoiceCreate() {
     },
   ];
 
-  const submitHandler = () => {
-    // e.preventDefault();
-    // const totals = calculateTotals();
-    // const invoiceData = {
-    //   // customerDetails,
-    //   lineItems,
-    //   ...totals,
-    // };
-    // navigate("/sales", { state: invoiceData });
+  const invoiceGenerator = () => {
+    return "hello";
+  };
+
+  const submitHandler = (e) => {
+    e.preventDefault();
+    const billData = {
+      date: new Date()
+        .toLocaleDateString("en-GB", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        })
+        .replace(",", ""),
+      customerDetails,
+      lineItems,
+      totalAmount,
+      totalTax,
+      totalDiscount,
+      payment_type: selectedPayment,
+      invoiceNo: "250700001",
+    };
+
+    console.log(billData);
+
+    navigate("/invoice/view", { state: billData });
   };
 
   return (
@@ -274,18 +314,27 @@ function InvoiceCreate() {
               title="Customer Name"
               type="text"
               placeholder="Enter Full Name"
-              onChange={() => {
-                console.log();
+              onChange={(e) => {
+                setCustomerDetails((prev) => ({
+                  ...prev,
+                  name: e.target.value,
+                  phone: prev?.phone || "",
+                  email: prev?.email || "",
+                }));
               }}
             />
             <LabeledInput
-              // name="customerPhone"
               name="customerPhone"
               title="Phone No."
               type="tel"
               placeholder="Enter Phone No."
-              onChange={() => {
-                console.log();
+              onChange={(e) => {
+                setCustomerDetails((prev) => ({
+                  ...prev,
+                  phone: e.target.value,
+                  name: prev?.name || "",
+                  email: prev?.email || "",
+                }));
               }}
             />
             <LabeledInput
@@ -293,8 +342,13 @@ function InvoiceCreate() {
               title="Email Id"
               type="email"
               placeholder="Enter Email Id"
-              onChange={() => {
-                console.log();
+              onChange={(e) => {
+                setCustomerDetails((prev) => ({
+                  ...prev,
+                  email: e.target.value,
+                  phone: prev?.phone || "",
+                  name: prev?.name || "",
+                }));
               }}
             />
           </div>
@@ -333,6 +387,29 @@ function InvoiceCreate() {
                 name="totalAmount"
                 placeholder={"Total Amount"}
               />
+            </div>
+          </div>
+          <div className="flex flex-col w-full mx-auto mt-4 mb-8">
+            <h2 className="text-xl mb-2">Select Payment Type</h2>
+            <div className="grid grid-cols-3 gap-4">
+              {paymentOptions.map((option) => (
+                <button
+                  type="button"
+                  key={option.id}
+                  onClick={() => handleSelect(option.id)}
+                  className={`flex flex-col items-center justify-center p-4 rounded-lg shadow-md transition-all duration-200 cursor-pointer border-2 
+              ${
+                selectedPayment === option.id
+                  ? "border-prussian_blue bg-prussian_blue-5"
+                  : "border-gray-200 bg-gray-50"
+              }
+            `}>
+                  <span className="text-3xl mb-2">
+                    <img src={option.icon} className="h-10" />
+                  </span>
+                  <span className="text-base font-medium">{option.label}</span>
+                </button>
+              ))}
             </div>
           </div>
           <div className="flex gap-4 items-center">

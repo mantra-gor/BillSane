@@ -1,4 +1,4 @@
-import { useRoutes } from "react-router";
+import { Navigate, useRoutes } from "react-router";
 
 //* Pages
 import BlankLayout from "../components/core/layout/BlankLayout";
@@ -42,13 +42,21 @@ const Router = () => {
               element: <InvoiceCreate />,
             },
             {
-              path: "sales",
+              path: "invoice/view",
               element: <Invoice />,
+            },
+            {
+              path: "sales",
+              element: <>Sales</>,
             },
             {
               path: "settings",
               element: <Settings />,
               children: [
+                {
+                  index: true,
+                  element: <Navigate to="/settings/accounts" />,
+                },
                 {
                   path: "accounts",
                   element: <Account />,

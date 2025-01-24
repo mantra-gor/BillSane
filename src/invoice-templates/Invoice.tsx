@@ -1,7 +1,14 @@
 import { useState } from "react";
 import brand_logo from "../react/assets/branding/logo-no-background.png";
+import { useLocation } from "react-router";
+import { useReactToPrint } from "react-to-print";
+import { useRef } from "react";
+import { PiPrinterBold } from "react-icons/pi";
 
 function Invoice() {
+  const contentRef = useRef<HTMLDivElement>(null);
+  const reactToPrintFn = useReactToPrint({ contentRef });
+
   const businessDetails = {
     gst: "06AAACM5586C1ZL",
     phone: "+91 9999977777",
@@ -10,83 +17,85 @@ function Invoice() {
       "Manyata Embassy Business Park Block N1 Ground Floor Rachenahalli, Nagavara Bangalore, Karnataka 560045, IN",
   };
 
-  const [billData, setBillData] = useState({
-    date: new Date()
-      .toLocaleDateString("en-GB", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      })
-      .replace(",", ""),
-    invoice_no: "250700001",
-    customer_details: {
-      name: "Mantra Gor",
-      phone: "+91 7778888999",
-      email: "mantragor77@gmail.com",
-    },
-    payment_type: "Cash",
-    total: 1176450,
-    order_line_items: [
-      {
-        itemName: "DocuLens AI",
-        rate: "500000",
-        qty: "2",
-        discountPer: "6",
-        discount: "30000",
-        taxType: "GST",
-        taxPer: "18",
-        tax: "84600",
-        subTotal: "554600",
-      },
-      {
-        itemName: "SmartOffice Pro",
-        rate: "120000",
-        qty: "1",
-        discountPer: "10",
-        discount: "12000",
-        taxType: "GST",
-        taxPer: "18",
-        tax: "21600",
-        subTotal: "108600",
-      },
-      {
-        itemName: "EcoPrinter 3000",
-        rate: "80000",
-        qty: "1",
-        discountPer: "5",
-        discount: "4000",
-        taxType: "GST",
-        taxPer: "18",
-        tax: "14400",
-        subTotal: "96000",
-      },
-      {
-        itemName: "QuantumPad 12",
-        rate: "50000",
-        qty: "3",
-        discountPer: "15",
-        discount: "22500",
-        taxType: "GST",
-        taxPer: "18",
-        tax: "15750",
-        subTotal: "142250",
-      },
-      {
-        itemName: "SmartTable 200",
-        rate: "50000",
-        qty: "5",
-        discountPer: "8",
-        discount: "20000",
-        taxType: "GST",
-        taxPer: "18",
-        tax: "45000",
-        subTotal: "275000",
-      },
-    ],
-  });
+  // const [billData2, setBillData2] = useState({
+  //   date: new Date()
+  //     .toLocaleDateString("en-GB", {
+  //       day: "2-digit",
+  //       month: "short",
+  //       year: "numeric",
+  //     })
+  //     .replace(",", ""),
+  //   invoiceNo: "250700001",
+  //   customerDetails: {
+  //     name: "Mantra Gor",
+  //     phone: "+91 7778888999",
+  //     email: "mantragor77@gmail.com",
+  //   },
+  //   payment_type: "Cash",
+  //   totalAmount: 1176450,
+  //   lineItems: [
+  //     {
+  //       itemName: "DocuLens AI",
+  //       rate: "500000",
+  //       qty: "2",
+  //       taxType: "GST",
+  //       taxPer: "18",
+  //       tax: "84600",
+  //       subTotal: "554600",
+  //     },
+  //     {
+  //       itemName: "SmartOffice Pro",
+  //       rate: "120000",
+  //       qty: "1",
+  //       taxType: "GST",
+  //       taxPer: "18",
+  //       tax: "21600",
+  //       subTotal: "108600",
+  //     },
+  //     {
+  //       itemName: "EcoPrinter 3000",
+  //       rate: "80000",
+  //       qty: "1",
+  //       taxType: "GST",
+  //       taxPer: "18",
+  //       tax: "14400",
+  //       subTotal: "96000",
+  //     },
+  //     {
+  //       itemName: "QuantumPad 12",
+  //       rate: "50000",
+  //       qty: "3",
+  //       taxType: "GST",
+  //       taxPer: "18",
+  //       tax: "15750",
+  //       subTotal: "142250",
+  //     },
+  //     {
+  //       itemName: "SmartTable 200",
+  //       rate: "50000",
+  //       qty: "5",
+  //       taxType: "GST",
+  //       taxPer: "18",
+  //       tax: "45000",
+  //       subTotal: "275000",
+  //     },
+  //   ],
+  // });
+
+  const location = useLocation();
+  const billData = location.state;
 
   return (
-    <div className="mx-auto bg-white rounded-lg shadow-lg overflow-hidden">
+    <div
+      ref={contentRef}
+      className="mx-auto bg-white rounded-lg shadow-lgp overflow-hidden">
+      <div className="w-full p-2 flex justify-end hideContent">
+        <button
+          className="p-2 bg-slate-200 rounded-lg hover:bg-slate-300 duration-200"
+          onClick={() => reactToPrintFn()}>
+          <PiPrinterBold size={21} />
+        </button>
+      </div>
       <div className="px-12 py-8 border-b border-gray-200">
         <div className="flex justify-between items-center">
           <img src={brand_logo} className="h-14" alt="Brand Logo" />
@@ -97,12 +106,11 @@ function Invoice() {
             </p>
             <p className="text-sm text-gray-500">Invoice #</p>
             <p className="text-lg font-semibold text-gray-800">
-              {billData.invoice_no}
+              {billData.invoiceNo}
             </p>
           </div>
         </div>
       </div>
-
       <div className="px-12 py-8 bg-gray-50">
         <div className="flex justify-between space-x-12">
           <div className="text-sm text-gray-600">
@@ -116,14 +124,13 @@ function Invoice() {
           </div>
           <div className="text-sm text-gray-600 text-right">
             <p className="font-bold text-gray-800">
-              {billData.customer_details.name}
+              {billData.customerDetails.name}
             </p>
-            <p>Phone: {billData.customer_details.phone}</p>
-            <p>Email: {billData.customer_details.email}</p>
+            <p>Phone: {billData.customerDetails.phone}</p>
+            <p>Email: {billData.customerDetails.email}</p>
           </div>
         </div>
       </div>
-
       <div className="px-12 py-8 overflow-x-auto">
         <table className="w-full table-auto border-collapse">
           <thead>
@@ -156,11 +163,13 @@ function Invoice() {
             </tr>
           </thead>
           <tbody>
-            {billData.order_line_items.map((item, index) => (
+            {billData.lineItems.map((item, index) => (
               <tr key={index} className="border-b hover:bg-gray-50">
                 <td className="py-2 px-4 text-sm">{index + 1}</td>
                 <td className="py-2 px-4 text-sm">{item.itemName}</td>
-                <td className="py-2 px-4 text-sm">₹{item.rate}</td>
+                <td className="py-2 px-4 text-sm">
+                  ₹{item.rate.toLocaleString("en-IN")}
+                </td>
                 <td className="py-2 px-4 text-sm">{item.qty}</td>
                 {/* <td className="py-2 px-4 text-sm">{item.discountPer}</td> */}
                 {/* <td className="py-2 px-4 text-sm">{item.discount}</td> */}
@@ -168,24 +177,31 @@ function Invoice() {
                 <td className="py-2 px-4 text-sm">
                   {item.taxPer}% {item.taxType}
                 </td>
-                <td className="py-2 px-4 text-sm">{item.tax}</td>
-                <td className="py-2 px-4 text-sm">{item.subTotal}</td>
+                <td className="py-2 px-4 text-sm">
+                  {item.tax.toLocaleString("en-IN")}
+                </td>
+                <td className="py-2 px-4 text-sm">
+                  {item.subTotal.toLocaleString("en-IN")}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-
       <div className="px-12 py-4 text-right text-lg font-semibold text-gray-800">
         {/* Total: ₹{billData.total} */}
-        Total: ₹{billData.total.toLocaleString("en-IN")}
+        Total: ₹{billData.totalAmount.toLocaleString("en-IN")}
       </div>
-
+      {billData.totalDiscount && (
+        <div className="px-12 py-1 text-right text-lg font-semibold text-gray-800">
+          {/* Total: ₹{billData.total} */}
+          Discount: ₹{billData.totalDiscount?.toLocaleString("en-IN")}
+        </div>
+      )}
       <div className="px-12 py-6 bg-gray-50">
         <p className="text-main font-bold text-gray-800">Payment Details</p>
-        <p>Payment Type: {billData.payment_type}</p>
+        <p className="capitalize">Payment Type: {billData.payment_type}</p>
       </div>
-
       <div className="px-12 py-6">
         <p className="text-main font-bold text-gray-800">Notes</p>
         <p className="italic text-gray-600">
@@ -193,11 +209,10 @@ function Invoice() {
           and publishing industries for previewing layouts and visual mockups.
         </p>
       </div>
-
       {/* <footer className="py-4 bg-gray-800 text-gray-200 text-center text-sm">
         BillSane | Made By ❤️ In India | contactus@billsane.com | Mantra Gor
       </footer> */}
-      <footer className="py-4 bg-gray-800 text-gray-200 text-center text-sm">
+      <footer className="py-4 rounded-b-lg bg-gray-800 text-gray-200 text-center text-sm absolute left-0 right-0 bottom-0">
         © {new Date().getFullYear()} BillSane • Crafted with ❤️ in India{" "}
         {/* • */}
         {/* <a

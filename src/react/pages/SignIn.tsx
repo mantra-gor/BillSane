@@ -30,7 +30,7 @@ function SignIn() {
         <h2 className="text-xl mb-2 text-center font-medium text-gray-700">
           Login to{" "}
           <span className="underlined1 underline-clip1 italic">Streamline</span>{" "}
-          your billing
+          your invoices
           <span className="mt-1"> and stay in control.</span>
         </h2>
         <form
@@ -57,7 +57,7 @@ function SignIn() {
                 boxShadow: " 0px -1px 1px 0px rgba(20, 20, 20, 0.1) inset",
               }}
             />
-            {errors.email && (
+            {errors.email && typeof errors.email.message === "string" && (
               <p className="text-red-500 text-sm p-1">{errors.email.message}</p>
             )}
           </div>
@@ -78,10 +78,10 @@ function SignIn() {
                 },
               })}
               style={{
-                boxShadow: " 0px -1px 1px 0px rgba(20, 20, 20, 0.1) inset",
+                boxShadow: "0px -1px 1px 0px rgba(20, 20, 20, 0.1) inset",
               }}
             />
-            {errors.password && (
+            {errors.password && typeof errors.password.message === "string" && (
               <p className="text-red-500 text-sm p-1">
                 {errors.password.message}
               </p>
