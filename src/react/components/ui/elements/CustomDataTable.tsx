@@ -53,7 +53,7 @@ function CustomDataTable({
         columns={columns}
         data={data}
         theme="solarized"
-        className="pb-2 bg-[#EBEBEB] !md:h-[200px]"
+        className="pb-2 bg-[#EBEBEB] !md:max-h-[200px] lg:max-h-[300px] !overflow-scroll"
         responsive
         customStyles={customStyles}
       />

@@ -1,4 +1,3 @@
-import { useState } from "react";
 import brand_logo from "../react/assets/branding/logo-no-background.png";
 import { useLocation } from "react-router";
 import { useReactToPrint } from "react-to-print";
@@ -17,78 +16,13 @@ function Invoice() {
       "Manyata Embassy Business Park Block N1 Ground Floor Rachenahalli, Nagavara Bangalore, Karnataka 560045, IN",
   };
 
-  // const [billData2, setBillData2] = useState({
-  //   date: new Date()
-  //     .toLocaleDateString("en-GB", {
-  //       day: "2-digit",
-  //       month: "short",
-  //       year: "numeric",
-  //     })
-  //     .replace(",", ""),
-  //   invoiceNo: "250700001",
-  //   customerDetails: {
-  //     name: "Mantra Gor",
-  //     phone: "+91 7778888999",
-  //     email: "mantragor77@gmail.com",
-  //   },
-  //   payment_type: "Cash",
-  //   totalAmount: 1176450,
-  //   lineItems: [
-  //     {
-  //       itemName: "DocuLens AI",
-  //       rate: "500000",
-  //       qty: "2",
-  //       taxType: "GST",
-  //       taxPer: "18",
-  //       tax: "84600",
-  //       subTotal: "554600",
-  //     },
-  //     {
-  //       itemName: "SmartOffice Pro",
-  //       rate: "120000",
-  //       qty: "1",
-  //       taxType: "GST",
-  //       taxPer: "18",
-  //       tax: "21600",
-  //       subTotal: "108600",
-  //     },
-  //     {
-  //       itemName: "EcoPrinter 3000",
-  //       rate: "80000",
-  //       qty: "1",
-  //       taxType: "GST",
-  //       taxPer: "18",
-  //       tax: "14400",
-  //       subTotal: "96000",
-  //     },
-  //     {
-  //       itemName: "QuantumPad 12",
-  //       rate: "50000",
-  //       qty: "3",
-  //       taxType: "GST",
-  //       taxPer: "18",
-  //       tax: "15750",
-  //       subTotal: "142250",
-  //     },
-  //     {
-  //       itemName: "SmartTable 200",
-  //       rate: "50000",
-  //       qty: "5",
-  //       taxType: "GST",
-  //       taxPer: "18",
-  //       tax: "45000",
-  //       subTotal: "275000",
-  //     },
-  //   ],
-  // });
-
   const location = useLocation();
   const billData = location.state;
 
   return (
     <div
       ref={contentRef}
-      className="mx-auto bg-white rounded-lg shadow-lgp overflow-hidden">
+      className="mx-auto bg-white rounded-lg shadow-lgp overflow-scroll">
       <div className="w-full p-2 flex justify-end hideContent">
         <button
           className="p-2 bg-slate-200 rounded-lg hover:bg-slate-300 duration-200"
@@ -163,12 +97,12 @@ function Invoice() {
             </tr>
           </thead>
           <tbody>
-            {billData.lineItems.map((item, index) => (
+            {billData.lineItems.map((item: LineItem, index: number) => (
               <tr key={index} className="border-b hover:bg-gray-50">
                 <td className="py-2 px-4 text-sm">{index + 1}</td>
                 <td className="py-2 px-4 text-sm">{item.itemName}</td>
                 <td className="py-2 px-4 text-sm">
-                  ₹{item.rate.toLocaleString("en-IN")}
+                  ₹{item.rate?.toLocaleString("en-IN")}
                 </td>
                 <td className="py-2 px-4 text-sm">{item.qty}</td>
                 {/* <td className="py-2 px-4 text-sm">{item.discountPer}</td> */}
@@ -178,10 +112,10 @@ function Invoice() {
                   {item.taxPer}% {item.taxType}
                 </td>
                 <td className="py-2 px-4 text-sm">
-                  {item.tax.toLocaleString("en-IN")}
+                  {item.tax?.toLocaleString("en-IN")}
                 </td>
                 <td className="py-2 px-4 text-sm">
-                  {item.subTotal.toLocaleString("en-IN")}
+                  {item.subTotal?.toLocaleString("en-IN")}
                 </td>
               </tr>
             ))}

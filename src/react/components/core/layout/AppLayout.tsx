@@ -6,7 +6,7 @@ interface AppLayoutProps {
 
 const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   return (
-    <div className="rounded-2xl bg-white w-full h-full border shadow-xl overflow-clip">
+    <div className="relative rounded-2xl bg-white w-full max-h-[calc(100vh-40px)] border shadow-xl overflow-hidden">
       {children}
     </div>
   );

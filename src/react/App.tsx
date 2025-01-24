@@ -21,9 +21,9 @@ function App() {
   }, []);
 
   return (
-    <Suspense fallback={<FallbackSpinner />}>
-      <Router />
-    </Suspense>
+    // <Suspense fallback={<FallbackSpinner />}>
+    <Router />
+    // </Suspense>
   );
 }
 

@@ -271,10 +271,6 @@ function InvoiceCreate() {
     },
   ];
 
-  const invoiceGenerator = () => {
-    return "hello";
-  };
-
   const submitHandler = (e) => {
     e.preventDefault();
     const billData = {
@@ -300,7 +296,7 @@ function InvoiceCreate() {
   };
 
   return (
-    <div className="w-full h-full p-6 rounded-2xl bg-white border shadow-xl">
+    <div className="w-full h-full ] overflow-scroll p-6 rounded-2xl bg-white border shadow-xl">
       <h1 className="text-xl bg-munsell_blue text-white rounded-lg w-fit py-1 px-4">
         Create Invoice
       </h1>
@@ -390,22 +386,22 @@ function InvoiceCreate() {
             </div>
           </div>
           <div className="flex flex-col w-full mx-auto mt-4 mb-8">
-            <h2 className="text-xl mb-2">Select Payment Type</h2>
+            <h2 className="text-base font-medium mb-2">Select Payment Type</h2>
             <div className="grid grid-cols-3 gap-4">
               {paymentOptions.map((option) => (
                 <button
                   type="button"
                   key={option.id}
                   onClick={() => handleSelect(option.id)}
-                  className={`flex flex-col items-center justify-center p-4 rounded-lg shadow-md transition-all duration-200 cursor-pointer border-2 
+                  className={`flex items-center gap-2 p-1 rounded-lg shadow-md transition-all duration-200 cursor-pointer border-2 
               ${
                 selectedPayment === option.id
                   ? "border-prussian_blue bg-prussian_blue-5"
                   : "border-gray-200 bg-gray-50"
               }
             `}>
-                  <span className="text-3xl mb-2">
-                    <img src={option.icon} className="h-10" />
+                  <span className="text-3xl">
+                    <img src={option.icon} className="w-12 p-1" />
                   </span>
                   <span className="text-base font-medium">{option.label}</span>
                 </button>
@@ -419,7 +415,6 @@ function InvoiceCreate() {
             </Button>
           </div>
         </div>
-
         {/* <DevTool control={control} /> */}
       </form>
     </div>

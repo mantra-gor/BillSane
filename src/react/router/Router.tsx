@@ -33,7 +33,11 @@ const Router = () => {
           element: <ProtectedRoute allowedRole="Admin" element={<Home />} />,
           children: [
             {
-              path: "/dashboard",
+              index: true,
+              element: <Navigate to="/dashboard" />,
+            },
+            {
+              path: "dashboard",
               element: <Dashboard />,
               index: true,
             },
@@ -76,6 +80,10 @@ const Router = () => {
               ],
             },
           ],
+        },
+        {
+          path: "*",
+          element: <>Not Found</>,
         },
       ],
     },

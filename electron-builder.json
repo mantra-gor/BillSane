@@ -7,7 +7,7 @@
     "extraResources": [
         "dist-electron/preload.cjs"
     ],
-    "icon": "./desktop-icon.png",
+    "icon": "./desktopIcon.png",
     "mac": {
         "target": "dmg"
     },

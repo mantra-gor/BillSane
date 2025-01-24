@@ -1,8 +1,10 @@
 {
   "name": "billsane",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
+  "author": "Mantra Gor",
+  "description": "BillSane is a new generation billing simplified software application for all platforms.",
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "npm-run-all --parallel dev:react dev:electron",
