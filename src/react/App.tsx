@@ -1,6 +1,6 @@
-import { Suspense, useEffect } from "react";
+import { useEffect } from "react";
 import Router from "./router/Router";
-import FallbackSpinner from "./components/ui/spinners/FallbackSpinner";
+// import FallbackSpinner from "./components/ui/spinners/FallbackSpinner";
 
 function App() {
   useEffect(() => {
@@ -20,11 +20,7 @@ function App() {
     };
   }, []);
 
-  return (
-    // <Suspense fallback={<FallbackSpinner />}>
-    <Router />
-    // </Suspense>
-  );
+  return <Router />;
 }
 
 export default App;

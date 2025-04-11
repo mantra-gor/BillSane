@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import DataTable, { createTheme } from "react-data-table-component";
 
 // createTheme("solarized", {
@@ -47,6 +48,14 @@ function CustomDataTable({
   columns: object[];
   data: object[];
 }) {
+  useEffect(() => {
+    const headers = document.querySelectorAll(
+      '[role="columnheader"][tabindex="0"]'
+    );
+    headers.forEach((header) => {
+      header.setAttribute("tabIndex", "-1");
+    });
+  }, []);
   return (
     <div className="rounded-lg overflow-clip shadow-md">
       <DataTable

@@ -21,6 +21,7 @@ interface LabeledInputProps {
   name?: string;
   title: string;
   type: string;
+  tabIndex?: number;
   placeholder?: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   disabled?: boolean;

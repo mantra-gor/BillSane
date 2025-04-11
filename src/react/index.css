@@ -15,6 +15,12 @@ body {
   }
 }
 
+.scrollbar-hide-in-print::-webkit-scrollbar {
+  @media print {
+    display: none;
+  }
+}
+
 .hideContent {
   @media print {
     display: none !important;
@@ -66,6 +72,6 @@ input::-webkit-inner-spin-button {
   margin: 0;
 }
 .input-field {
-  @apply p-2 rounded-lg bg-primary disabled:bg-primary-5;
+  @apply p-2 rounded-md bg-primary disabled:bg-primary-5 font-normal border;
   box-shadow: "0px -1px 1px 0px rgba(20, 20, 20, 0.1) inset";
 }

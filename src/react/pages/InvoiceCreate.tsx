@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
 import CustomDataTable from "../components/ui/elements/CustomDataTable";
 import Input from "../components/ui/elements/Input";
-import LabeledInput from "../components/ui/elements/LabeledInput";
+// import LabeledInput from "../components/ui/elements/LabeledInput";
 import Button from "../components/ui/elements/Button";
 import upiIcon from "../assets/resources/upi-icon.png";
 import cardIcon from "../assets/resources/card-icon.png";
 import cashIcon from "../assets/resources/cash-icon.png";
 import { useNavigate } from "react-router";
-// import { useForm } from "react-hook-form";
+import { useForm, useFieldArray, Controller } from "react-hook-form";
+import * as Yup from "yup";
+import { yupResolver } from "@hookform/resolvers/yup";
 // import { DevTool } from "@hookform/devtools";
 
 type CustomerDetails = {
@@ -15,6 +17,18 @@ type CustomerDetails = {
   phone: string;
   email?: string;
 };
+
+const schema = Yup.object().shape({
+  items: Yup.array().of(
+    Yup.object().shape({
+      itemName: Yup.string().required("Item name is required"),
+      rate: Yup.number().required("Rate is required").min(0),
+      qty: Yup.number().required("Qty is required").min(1),
+      taxType: Yup.string().required("Tax type is required"),
+      taxPer: Yup.number().required("Tax % is required").min(0).max(100),
+    })
+  ),
+});
 
 function InvoiceCreate() {
   const lineItem: LineItem = {
@@ -33,9 +47,32 @@ function InvoiceCreate() {
     setSelectedPayment(id);
   };
 
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm();
+
+  // const {
+  //   control,
+  //   handleSubmit,
+  //   register,
+  //   formState: { errors },
+  // } = useForm({
+  //   resolver: yupResolver(schema),
+  //   defaultValues: {
+  //     items: [], // Initial line items
+  //   },
+  // });
+
+  // const { fields, append, remove } = useFieldArray({
+  //   control,
+  //   name: "items",
+  // });
+
   const [customerDetails, setCustomerDetails] = useState<CustomerDetails>();
   const [lineItems, setLineItems] = useState<LineItem[]>([lineItem]);
-  const [totalAmount, setTotalAmount] = useState<number | undefined>();
+  const [totalAmount, setTotalAmount] = useState<number | undefined>(0);
   const [totalTax, setTotalTax] = useState<number | undefined>();
   const [totalDiscount, setTotalDiscount] = useState<number | undefined>();
 
@@ -117,7 +154,7 @@ function InvoiceCreate() {
           <Input
             type="text"
             name="itemName"
-            placeholder={"Enter Product Name Here"}
+            placeholder={"Enter Product Name"}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
               handleLineItemChange(index, "itemName", e.target.value)
             }
@@ -271,8 +308,10 @@ function InvoiceCreate() {
     },
   ];
 
-  const submitHandler = (e) => {
-    e.preventDefault();
+  const onSubmit = (data) => {
+    console.log("CALLED", data);
+
+    // e.preventDefault();
     const billData = {
       date: new Date()
         .toLocaleDateString("en-GB", {
@@ -281,7 +320,11 @@ function InvoiceCreate() {
           year: "numeric",
         })
         .replace(",", ""),
-      customerDetails,
+      customerDetails: {
+        name: data.customerName,
+        phone: data.customerPhone,
+        email: data.customerEmail,
+      },
       lineItems,
       totalAmount,
       totalTax,
@@ -296,63 +339,138 @@ function InvoiceCreate() {
   };
 
   return (
-    <div className="w-full h-full ] overflow-scroll p-6 rounded-2xl bg-white border shadow-xl">
+    <div className="w-full h-full overflow-scroll p-5 rounded-2xl bg-white border shadow-xl">
       <h1 className="text-xl bg-munsell_blue text-white rounded-lg w-fit py-1 px-4">
         Create Invoice
       </h1>
-      <form onSubmit={submitHandler} noValidate>
+      <form onSubmit={handleSubmit(onSubmit)} noValidate>
         {/* Customer Details */}
-        <div className="mt-4 p-4 rounded-lg border">
-          <h2 className="text-xl">Customer Details</h2>
-          <div className="grid grid-cols-3 gap-4 mt-2">
-            <LabeledInput
-              name="customerName"
-              title="Customer Name"
-              type="text"
-              placeholder="Enter Full Name"
-              onChange={(e) => {
-                setCustomerDetails((prev) => ({
-                  ...prev,
-                  name: e.target.value,
-                  phone: prev?.phone || "",
-                  email: prev?.email || "",
-                }));
-              }}
-            />
-            <LabeledInput
-              name="customerPhone"
-              title="Phone No."
-              type="tel"
-              placeholder="Enter Phone No."
-              onChange={(e) => {
-                setCustomerDetails((prev) => ({
-                  ...prev,
-                  phone: e.target.value,
-                  name: prev?.name || "",
-                  email: prev?.email || "",
-                }));
-              }}
-            />
-            <LabeledInput
-              name="customerEmail"
-              title="Email Id"
-              type="email"
-              placeholder="Enter Email Id"
-              onChange={(e) => {
-                setCustomerDetails((prev) => ({
-                  ...prev,
-                  email: e.target.value,
-                  phone: prev?.phone || "",
-                  name: prev?.name || "",
-                }));
-              }}
-            />
+        {Object.keys(errors).length > 0 && (
+          <div className="text-red-500 text-sm p-2">
+            {/* {console.log(JSON?.stringify(errors, null, 2) ?? "")} */}
+            {/* <pre>{JSON.stringify(errors, null, 2)}</pre> */}
+          </div>
+        )}
+        <h2 className="text-xl mt-4 p-1 font-medium">Customer Details</h2>
+        <div className="mt-4p p-4 rounded-lg border">
+          <div className="grid grid-cols-3 gap-4 mt-3p">
+            <div>
+              <label className="mb-1 font-medium text-gray-700">
+                Customer Name
+                <sup className="text-pink-600 ml-[2px]">*</sup>
+                <input
+                  className="input-field w-full"
+                  type="text"
+                  placeholder="Enter Full Name"
+                  required={true}
+                  {...register("customerName", {
+                    required: "Name is required",
+                  })}
+                />
+              </label>
+
+              {errors.customerName &&
+                typeof errors.customerName.message === "string" && (
+                  <p className="text-red-500 text-sm p-1">
+                    {errors.customerName.message}
+                  </p>
+                )}
+
+              {/* <input
+                className="border p-3 input-field w-full !rounded-md"
+                title="Customer Name"
+                type="text"
+                placeholder="Enter Full Name"
+                {...nameRegister}
+                // onChange={(e) => {
+                //   nameRegister.onChange(e);
+                //   setCustomerDetails((prev) => ({
+                //     ...prev,
+                //     name: e.target.value,
+                //     phone: prev?.phone || "",
+                //     email: prev?.email || "",
+                //   }));
+                // }}
+              /> */}
+            </div>
+            <div>
+              <label className="mb-1 font-medium text-gray-700">
+                Customer Phone No.
+                <sup className="text-pink-600 ml-[2px]">*</sup>
+                <input
+                  className="input-field w-full"
+                  title="Phone No."
+                  type="tel"
+                  placeholder="Enter Phone No."
+                  {...register("customerPhone", {
+                    required: "Phone number is required",
+                    pattern: {
+                      value: /^\d{10}$/,
+                      message: "Enter a valid phone number",
+                    },
+                  })}
+                  // onChange={(e) => {
+                  //   phoneRegister.onChange(e);
+                  //   setCustomerDetails((prev) => ({
+                  //     ...prev,
+                  //     phone: e.target.value,
+                  //     name: prev?.name || "",
+                  //     email: prev?.email || "",
+                  //   }));
+                  // }}
+                />
+              </label>
+              {errors.customerPhone &&
+                typeof errors.customerPhone.message === "string" && (
+                  <p className="text-red-500 text-sm p-1">
+                    {errors.customerPhone.message}
+                  </p>
+                )}
+            </div>
+            <div>
+              <label className="mb-1 font-medium text-gray-700">
+                Customer Email Id
+                <sup className="text-pink-600 ml-[2px]">*</sup>
+                <input
+                  className="input-field w-full"
+                  title="Email Id"
+                  type="email"
+                  placeholder="Enter Email Id"
+                  {...register("customerEmail", {
+                    required: "Email is required",
+                    pattern: {
+                      value:
+                        /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/,
+                      message: "Enter a valid email address",
+                    },
+                  })}
+                  // onChange={(e) => {
+                  //   emailRegister.onChange(e);
+                  //   setCustomerDetails((prev) => ({
+                  //     ...prev,
+                  //     email: e.target.value,
+                  //     phone: prev?.phone || "",
+                  //     name: prev?.name || "",
+                  //   }));
+                  // }}
+                />
+              </label>
+
+              {errors.customerEmail &&
+                typeof errors.customerEmail.message === "string" && (
+                  <p className="text-red-500 text-sm p-1">
+                    {errors.customerEmail.message}
+                  </p>
+                )}
+            </div>
           </div>
         </div>
 
         {/* Purchased Items Details */}
-        <div className="mt-4 p-4 rounded-lg border">
-          <h2 className="text-xl mb-2">Purchased Items Details</h2>
+        <h2 className="text-xl mt-2 p-1 font-medium">
+          Purchased Items Details
+        </h2>
+        <div className="mt-4p p-4 rounded-lg border">
           <CustomDataTable columns={invoiceCols} data={lineItems} />
           <div className="flex w-full justify-end p-2">
             <Button onClick={AddLineItem}>Add Item</Button>
@@ -385,7 +503,7 @@ function InvoiceCreate() {
               />
             </div>
           </div>
-          <div className="flex flex-col w-full mx-auto mt-4 mb-8">
+          <div className="flex flex-col w-full mx-auto mt-4 mb-5">
             <h2 className="text-base font-medium mb-2">Select Payment Type</h2>
             <div className="grid grid-cols-3 gap-4">
               {paymentOptions.map((option) => (
@@ -410,7 +528,7 @@ function InvoiceCreate() {
           </div>
           <div className="flex gap-4 items-center">
             <Button type="submit">Create</Button>
-            <Button active={false} onClick={() => console.log()}>
+            <Button type="button" active={false} onClick={() => console.log()}>
               Reset
             </Button>
           </div>

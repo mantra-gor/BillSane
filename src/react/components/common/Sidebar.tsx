@@ -12,7 +12,7 @@ function Sidebar() {
       path: "/dashboard",
     },
     {
-      title: "Invoice",
+      title: "Create Invoice",
       icon: BiReceipt,
       path: "/invoice-create",
     },
@@ -39,6 +39,7 @@ function Sidebar() {
       </div>
       {sidebarElements.map((item, index) => (
         <NavLink
+          tabIndex={-1}
           key={index}
           to={item.path}
           className={({ isActive }) =>
