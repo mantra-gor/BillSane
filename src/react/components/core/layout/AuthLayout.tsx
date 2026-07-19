@@ -2,7 +2,7 @@ import BackgroundGraphic1 from "../graphics/BackgroundGraphic1";
 import logo from "../../../assets/branding/logo-no-background.png";
 import SignIn from "../../../pages/SignIn";
 import SignUp from "../../../pages/SignUp";
-import accounting from "../../../assets/resources/accounting.mp4";
+import accounting from "../../../assets/resources/accounting.webm";
 
 function AuthLayout({ formType }: { formType: string }) {
   return (
@@ -14,13 +14,17 @@ function AuthLayout({ formType }: { formType: string }) {
       </div>
       <div className="w-5/12 my-3 rounded-l-2xl overflow-hidden  flex justify-center items-center ">
         <div style={{ position: "relative", width: "100%", height: "auto" }}>
-          <video
+          {/* <video
             src={accounting}
             autoPlay
             muted
             loop
             className="w-full h-full relative"
-          />
+          /> */}
+          <video autoPlay loop muted className="w-full h-full relative">
+            <source src={accounting} type="video/webm" />
+          </video>
+
           <div className="absolute top-0 left-0 w-full h-full z-10 bg-black bg-opacity-30" />
           <div className="absolute flex flex-col gap-4 bottom-[20%] left-[10%] z-20 text-5xl text-white font-semibold tracking-wider">
             <div>Make Your</div>
