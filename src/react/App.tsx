@@ -1,9 +1,11 @@
 import { useEffect } from "react";
 import Router from "./router/Router";
-// import FallbackSpinner from "./components/ui/spinners/FallbackSpinner";
+import ToastProvider from "./components/ui/feedback/ToastProvider";
 
 function App() {
   useEffect(() => {
+    // Zoom shortcuts resize a desktop app's chrome in ways the layout doesn't
+    // expect, so they stay suppressed.
     const handleZoomShortcut = (e: KeyboardEvent) => {
       if (
         (e.ctrlKey || e.metaKey) &&
@@ -20,7 +22,11 @@ function App() {
     };
   }, []);
 
-  return <Router />;
+  return (
+    <ToastProvider>
+      <Router />
+    </ToastProvider>
+  );
 }
 
 export default App;

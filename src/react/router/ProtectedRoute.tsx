@@ -6,7 +6,7 @@ interface ProtectedRouteProps {
   element: ReactNode;
 }
 
-function ProtectedRoute({ allowedRole, element }: ProtectedRouteProps) {
+function ProtectedRoute({ element }: ProtectedRouteProps) {
   const isUserLoggedIn = localStorage.getItem("isUserLoggedIn") === "true";
 
   if (!isUserLoggedIn) {

@@ -1,541 +1,634 @@
-import { useEffect, useState } from "react";
-import CustomDataTable from "../components/ui/elements/CustomDataTable";
-import Input from "../components/ui/elements/Input";
-// import LabeledInput from "../components/ui/elements/LabeledInput";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router";
+import { useForm } from "react-hook-form";
+import {
+  FiAlertCircle,
+  FiCornerDownLeft,
+  FiPlus,
+  FiRotateCcw,
+  FiShoppingCart,
+  FiTrash2,
+  FiUser,
+} from "react-icons/fi";
+import { TbCurrencyRupee } from "react-icons/tb";
+import AppLayout from "../components/core/layout/AppLayout";
+import Card from "../components/ui/elements/Card";
 import Button from "../components/ui/elements/Button";
+import Field from "../components/ui/elements/Field";
+import Input from "../components/ui/elements/Input";
+import LabeledInput from "../components/ui/elements/LabeledInput";
+import EmptyState from "../components/ui/elements/EmptyState";
+import { useToast } from "../components/ui/feedback/toastContext";
+import { saveInvoice } from "../utils/invoiceStore";
+import { formatINR } from "../utils/format";
+import { MOD_KEY, hasModifier } from "../hooks/usePlatform";
+import {
+  blockInvalidNumberKey,
+  blockNonDigitKey,
+  emailValidation,
+  phoneValidation,
+} from "../utils/validators";
 import upiIcon from "../assets/resources/upi-icon.png";
 import cardIcon from "../assets/resources/card-icon.png";
 import cashIcon from "../assets/resources/cash-icon.png";
-import { useNavigate } from "react-router";
-import { useForm, useFieldArray, Controller } from "react-hook-form";
-import * as Yup from "yup";
-import { yupResolver } from "@hookform/resolvers/yup";
-// import { DevTool } from "@hookform/devtools";
 
-type CustomerDetails = {
-  name: string;
-  phone: string;
-  email?: string;
+interface CustomerFormValues {
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string;
+}
+
+/**
+ * A draft row. Rate/qty/tax% are held as strings so a half-typed value ("1.",
+ * "") round-trips through the input without the cursor jumping — they're
+ * coerced to numbers only when totals are computed.
+ */
+interface DraftLine {
+  id: number;
+  itemName: string;
+  rate: string;
+  qty: string;
+  taxType: string;
+  taxPer: string;
+}
+
+const PAYMENT_OPTIONS = [
+  { id: "cash", label: "Cash", icon: cashIcon },
+  { id: "card", label: "Card", icon: cardIcon },
+  { id: "upi", label: "UPI", icon: upiIcon },
+];
+
+// Columns are declared once and shared by the header and every row, so the
+// grid can never drift out of alignment. The fixed widths total ~580px with
+// gaps and padding, which keeps the natural minimum inside the entry column at
+// a 1440px window (sidebar + cart leave it roughly 760px).
+const GRID = "grid-cols-[minmax(0,1fr)_100px_72px_96px_76px_120px_36px]";
+
+let nextLineId = 1;
+
+function newLine(): DraftLine {
+  return {
+    id: nextLineId++,
+    itemName: "",
+    rate: "",
+    qty: "1",
+    taxType: "GST",
+    taxPer: "18",
+  };
+}
+
+const num = (value: string) => {
+  const parsed = parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const schema = Yup.object().shape({
-  items: Yup.array().of(
-    Yup.object().shape({
-      itemName: Yup.string().required("Item name is required"),
-      rate: Yup.number().required("Rate is required").min(0),
-      qty: Yup.number().required("Qty is required").min(1),
-      taxType: Yup.string().required("Tax type is required"),
-      taxPer: Yup.number().required("Tax % is required").min(0).max(100),
-    })
-  ),
-});
+interface LineTotals {
+  base: number;
+  tax: number;
+  total: number;
+}
+
+function lineTotals(line: DraftLine): LineTotals {
+  const base = num(line.rate) * num(line.qty);
+  const tax = (base * num(line.taxPer)) / 100;
+  return { base, tax, total: base + tax };
+}
+
+/** A line counts once it names something and carries a quantity. */
+function isFilled(line: DraftLine): boolean {
+  return line.itemName.trim() !== "" && num(line.qty) > 0;
+}
 
 function InvoiceCreate() {
-  const lineItem: LineItem = {
-    id: Date.now(),
-  };
   const navigate = useNavigate();
-  const [selectedPayment, setSelectedPayment] = useState("cash");
+  const toast = useToast();
 
-  const paymentOptions = [
-    { id: "cash", label: "Cash", icon: cashIcon },
-    { id: "card", label: "Card", icon: cardIcon },
-    { id: "upi", label: "UPI", icon: upiIcon },
-  ];
-
-  const handleSelect = (id: string) => {
-    setSelectedPayment(id);
-  };
+  const [lines, setLines] = useState<DraftLine[]>(() => [newLine()]);
+  const [payment, setPayment] = useState("cash");
+  const [discount, setDiscount] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [showLineErrors, setShowLineErrors] = useState(false);
+  // Set when a row is appended, so the effect below can focus its first input.
+  const focusLineId = useRef<number | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
 
   const {
     register,
     handleSubmit,
+    reset: resetCustomer,
     formState: { errors },
-  } = useForm();
+  } = useForm<CustomerFormValues>({
+    defaultValues: { customerName: "", customerPhone: "", customerEmail: "" },
+  });
 
-  // const {
-  //   control,
-  //   handleSubmit,
-  //   register,
-  //   formState: { errors },
-  // } = useForm({
-  //   resolver: yupResolver(schema),
-  //   defaultValues: {
-  //     items: [], // Initial line items
-  //   },
-  // });
+  const addLine = useCallback(() => {
+    const line = newLine();
+    focusLineId.current = line.id;
+    setLines((prev) => [...prev, line]);
+  }, []);
 
-  // const { fields, append, remove } = useFieldArray({
-  //   control,
-  //   name: "items",
-  // });
-
-  const [customerDetails, setCustomerDetails] = useState<CustomerDetails>();
-  const [lineItems, setLineItems] = useState<LineItem[]>([lineItem]);
-  const [totalAmount, setTotalAmount] = useState<number | undefined>(0);
-  const [totalTax, setTotalTax] = useState<number | undefined>();
-  const [totalDiscount, setTotalDiscount] = useState<number | undefined>();
-
-  const AddLineItem = () => {
-    setLineItems((prev) => [...prev, lineItem]);
-  };
-
-  const RemoveLineItem = (index: number) => {
-    setLineItems((prev) => {
-      return prev.filter((_, idx) => index !== idx);
+  const removeLine = (id: number) => {
+    setLines((prev) => {
+      const next = prev.filter((line) => line.id !== id);
+      // Never leave the counter with nothing to type into.
+      return next.length > 0 ? next : [newLine()];
     });
   };
 
-  const calcTotals = (discount?: number) => {
-    const totalTax = lineItems.reduce((sum, item) => sum + item.tax, 0);
-    const totalAmount =
-      lineItems.reduce((sum, item) => sum + item.subTotal, 0) -
-      (discount ? discount : 0);
-    setTotalAmount(totalAmount);
-    setTotalTax(totalTax);
-  };
-
-  const discountHandler = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const discount = parseFloat(e.target.value);
-    setTotalDiscount(discount);
-    calcTotals(discount);
-  };
-
-  useEffect(() => {
-    calcTotals();
-  }, [lineItems]);
-
-  const handleLineItemChange = (
-    index: number,
-    field: string,
-    value: string | number
-  ) => {
-    setLineItems((prev) =>
-      prev.map((item, idx) =>
-        idx === index ? { ...item, [field]: value } : item
-      )
+  const updateLine = (id: number, field: keyof DraftLine, value: string) => {
+    setLines((prev) =>
+      prev.map((line) => (line.id === id ? { ...line, [field]: value } : line))
     );
   };
 
-  const calcTax = (
-    index: number,
-    qty: number,
-    rate: number,
-    taxPer: number
-  ) => {
-    // Calculate the tax
-    const tax = (rate * qty * taxPer) / 100;
-    // Update the line item with the calculated tax
-    handleLineItemChange(index, "tax", tax);
-    // calculate sub total
-    calcSubTotal(index, rate, qty, tax);
-  };
+  // Focus the item-name box of a freshly added row.
+  useEffect(() => {
+    if (focusLineId.current === null) return;
+    const input = gridRef.current?.querySelector<HTMLInputElement>(
+      `[data-line="${focusLineId.current}"][data-field="itemName"]`
+    );
+    input?.focus();
+    focusLineId.current = null;
+  }, [lines]);
 
-  const calcSubTotal = (
-    index: number,
-    rate: number,
-    qty: number,
-    tax: number
-  ) => {
-    // Calculate the subtotal
-    const rateWithTax = rate * qty + tax;
-
-    const subTotal = rateWithTax;
-    // Update the line item with the calculated subtotal
-    handleLineItemChange(index, "subTotal", subTotal);
-  };
-
-  const invoiceCols = [
-    {
-      minwidth: "350px",
-      name: "Item Name",
-      cell: (row: LineItem, index: number) => (
-        <div className="w-full">
-          <Input
-            type="text"
-            name="itemName"
-            placeholder={"Enter Product Name"}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              handleLineItemChange(index, "itemName", e.target.value)
-            }
-            required={true}
-          />
-        </div>
-      ),
-    },
-    {
-      width: "130px",
-      name: "Rate (₹)",
-      cell: (row: LineItem, index: number) => (
-        <div className="w-full">
-          <Input
-            type="number"
-            name="rate"
-            min={0}
-            placeholder={"Item Rate"}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-              const value = parseFloat(e.target.value); // Convert string to float
-              handleLineItemChange(index, "rate", value); // Pass as number
-              calcTax(index, value, row.qty, row.taxPer); // Pass as number
-            }}
-            onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-              if (e.key === "-" || e.key === "e" || e.key === "+") {
-                e.preventDefault();
-              }
-            }}
-            onWheel={(e) => (e.target as HTMLInputElement).blur()}
-            required={true}
-          />
-        </div>
-      ),
-    },
-    {
-      width: "130px",
-      name: "Qty",
-      cell: (row: LineItem, index: number) => (
-        <div className="w-full">
-          <Input
-            type="number"
-            name="qty"
-            min={0}
-            placeholder={"Quantity"}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-              const value = parseFloat(e.target.value); // Convert string to float
-              handleLineItemChange(index, "qty", value); // Pass as number
-              calcTax(index, row.rate, value, row.taxPer); // Pass as number
-            }}
-            onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-              if (e.key === "-" || e.key === "e" || e.key === "+") {
-                e.preventDefault();
-              }
-            }}
-            onWheel={(e) => (e.target as HTMLInputElement).blur()}
-            required={true}
-          />
-        </div>
-      ),
-    },
-    {
-      width: "120px",
-      name: "Tax Type",
-      cell: (row: LineItem, index: number) => (
-        <div className="w-full">
-          <Input
-            type="text"
-            name="taxType"
-            placeholder={"Tax Type"}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              handleLineItemChange(index, "taxType", e.target.value)
-            }
-            required={true}
-          />
-        </div>
-      ),
-    },
-    {
-      width: "100px",
-      name: "Tax (%)",
-      cell: (row: LineItem, index: number) => (
-        <div className="w-full">
-          <Input
-            type="number"
-            name="taxPer"
-            min={0}
-            max={100}
-            placeholder={"Tax per item (%)"}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-              const value = parseFloat(e.target.value); // Convert string to float
-              handleLineItemChange(index, "taxPer", value); // Pass as number
-              calcTax(index, row.qty, row.rate, value); // Pass as number
-            }}
-            onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-              if (e.key === "-" || e.key === "e" || e.key === "+") {
-                e.preventDefault();
-              }
-            }}
-            onWheel={(e) => (e.target as HTMLInputElement).blur()}
-            required={true}
-          />
-        </div>
-      ),
-    },
-    {
-      width: "100px",
-      name: "Tax",
-      cell: (row: LineItem) => {
-        return (
-          <div className="w-full">
-            <Input
-              type="number"
-              name="tax"
-              placeholder={"Tax"}
-              value={row.tax}
-              onWheel={(e) => (e.target as HTMLInputElement).blur()}
-              required={true}
-              disabled
-            />
-          </div>
-        );
-      },
-    },
-    {
-      width: "130px",
-      name: "Sub Total",
-      cell: (row: LineItem) => (
-        <div className="w-full">
-          <Input
-            type="number"
-            name="subTotal"
-            disabled
-            placeholder={"Sub Total"}
-            required={true}
-            value={row.subTotal}
-            onWheel={(e) => (e.target as HTMLInputElement).blur()}
-          />
-        </div>
-      ),
-    },
-    {
-      width: "130px",
-      name: "Action",
-      cell: (row: LineItem, index: number) => (
-        <div className="w-full">
-          <Button type="button" onClick={() => RemoveLineItem(index)}>
-            Remove
-          </Button>
-        </div>
-      ),
-    },
-  ];
-
-  const onSubmit = (data) => {
-    console.log("CALLED", data);
-
-    // e.preventDefault();
-    const billData = {
-      date: new Date()
-        .toLocaleDateString("en-GB", {
-          day: "2-digit",
-          month: "short",
-          year: "numeric",
-        })
-        .replace(",", ""),
-      customerDetails: {
-        name: data.customerName,
-        phone: data.customerPhone,
-        email: data.customerEmail,
-      },
-      lineItems,
-      totalAmount,
-      totalTax,
-      totalDiscount,
-      payment_type: selectedPayment,
-      invoiceNo: "250700001",
+  const totals = useMemo(() => {
+    const filled = lines.filter(isFilled);
+    const base = filled.reduce((sum, line) => sum + lineTotals(line).base, 0);
+    const tax = filled.reduce((sum, line) => sum + lineTotals(line).tax, 0);
+    const discountValue = Math.min(Math.max(num(discount), 0), base + tax);
+    return {
+      itemCount: filled.length,
+      units: filled.reduce((sum, line) => sum + num(line.qty), 0),
+      base,
+      tax,
+      discount: discountValue,
+      grand: base + tax - discountValue,
     };
+  }, [lines, discount]);
 
-    console.log(billData);
+  const hasItems = totals.itemCount > 0;
 
-    navigate("/invoice/view", { state: billData });
+  const resetAll = () => {
+    resetCustomer();
+    setLines([newLine()]);
+    setDiscount("");
+    setPayment("cash");
+    setShowLineErrors(false);
   };
+
+  const onSubmit = async (data: CustomerFormValues) => {
+    const filled = lines.filter(isFilled);
+
+    if (filled.length === 0) {
+      setShowLineErrors(true);
+      toast.error(
+        "Add at least one item",
+        "An invoice needs a line with a name and a quantity."
+      );
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const saved = await saveInvoice({
+        date: new Date()
+          .toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          })
+          .replace(",", ""),
+        customerDetails: {
+          name: data.customerName,
+          phone: data.customerPhone,
+          email: data.customerEmail,
+        },
+        lineItems: filled.map((line) => {
+          const { tax, total } = lineTotals(line);
+          return {
+            id: line.id,
+            itemName: line.itemName.trim(),
+            rate: num(line.rate),
+            qty: num(line.qty),
+            taxType: line.taxType.trim(),
+            taxPer: num(line.taxPer),
+            tax,
+            subTotal: total,
+          };
+        }),
+        totalAmount: totals.grand,
+        totalTax: totals.tax,
+        totalDiscount: totals.discount,
+        payment_type: payment,
+      });
+
+      toast.success(
+        `Invoice ${saved.invoiceNo} created`,
+        `${formatINR(totals.grand)} · ${payment.toUpperCase()}`
+      );
+      navigate("/invoice/view", { state: saved });
+    } catch (err) {
+      toast.error(
+        "Couldn't save the invoice",
+        err instanceof Error ? err.message : String(err)
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // ⌘Enter submits from anywhere on the screen — the counter shortcut.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (hasModifier(e) && e.key === "Enter") {
+        e.preventDefault();
+        void handleSubmit(onSubmit)();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handleSubmit, lines, discount, payment, totals.grand]);
+
+  /** Enter anywhere in the last row starts the next one. */
+  const onRowKeyDown = (e: React.KeyboardEvent, index: number) => {
+    if (e.key !== "Enter" || hasModifier(e)) return;
+    e.preventDefault();
+    if (index === lines.length - 1) addLine();
+    else {
+      gridRef.current
+        ?.querySelector<HTMLInputElement>(
+          `[data-line="${lines[index + 1].id}"][data-field="itemName"]`
+        )
+        ?.focus();
+    }
+  };
+
+  const cellClass =
+    "h-9 w-full rounded-lg border border-transparent bg-transparent px-2.5 text-sm text-ink transition-colors hover:border-line focus:border-munsell_blue focus:bg-surface focus:outline-none focus:ring-[3px] focus:ring-munsell_blue/15 placeholder:text-ink-faint";
 
   return (
-    <div className="w-full h-full overflow-scroll p-5 rounded-2xl bg-white border shadow-xl">
-      <h1 className="text-xl bg-munsell_blue text-white rounded-lg w-fit py-1 px-4">
-        Create Invoice
-      </h1>
+    <AppLayout width="wide">
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
-        {/* Customer Details */}
-        {Object.keys(errors).length > 0 && (
-          <div className="text-red-500 text-sm p-2">
-            {/* {console.log(JSON?.stringify(errors, null, 2) ?? "")} */}
-            {/* <pre>{JSON.stringify(errors, null, 2)}</pre> */}
-          </div>
-        )}
-        <h2 className="text-xl mt-4 p-1 font-medium">Customer Details</h2>
-        <div className="mt-4p p-4 rounded-lg border">
-          <div className="grid grid-cols-3 gap-4 mt-3p">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-start">
+          {/* ---------------------------------------------------------------
+              Entry column
+              --------------------------------------------------------------- */}
+          <div className="min-w-0 flex-1 space-y-5">
             <div>
-              <label className="mb-1 font-medium text-gray-700">
-                Customer Name
-                <sup className="text-pink-600 ml-[2px]">*</sup>
-                <input
-                  className="input-field w-full"
-                  type="text"
-                  placeholder="Enter Full Name"
-                  required={true}
+              <h1 className="text-[22px] font-bold leading-tight text-ink">
+                New Invoice
+              </h1>
+              <p className="mt-1 text-sm text-ink-muted">
+                Add the customer and what they bought — totals update as you
+                type.
+              </p>
+            </div>
+
+            <Card
+              title="Customer"
+              subtitle="Printed on the invoice"
+              action={<FiUser size={15} className="text-ink-faint" />}>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <LabeledInput
+                  title="Full name"
+                  required
+                  autoFocus
+                  placeholder="e.g. Rohan Mehta"
+                  error={errors.customerName?.message}
                   {...register("customerName", {
-                    required: "Name is required",
+                    required: "Customer name is required",
                   })}
                 />
-              </label>
-
-              {errors.customerName &&
-                typeof errors.customerName.message === "string" && (
-                  <p className="text-red-500 text-sm p-1">
-                    {errors.customerName.message}
-                  </p>
-                )}
-
-              {/* <input
-                className="border p-3 input-field w-full !rounded-md"
-                title="Customer Name"
-                type="text"
-                placeholder="Enter Full Name"
-                {...nameRegister}
-                // onChange={(e) => {
-                //   nameRegister.onChange(e);
-                //   setCustomerDetails((prev) => ({
-                //     ...prev,
-                //     name: e.target.value,
-                //     phone: prev?.phone || "",
-                //     email: prev?.email || "",
-                //   }));
-                // }}
-              /> */}
-            </div>
-            <div>
-              <label className="mb-1 font-medium text-gray-700">
-                Customer Phone No.
-                <sup className="text-pink-600 ml-[2px]">*</sup>
-                <input
-                  className="input-field w-full"
-                  title="Phone No."
+                <LabeledInput
+                  title="Phone"
+                  required
                   type="tel"
-                  placeholder="Enter Phone No."
-                  {...register("customerPhone", {
-                    required: "Phone number is required",
-                    pattern: {
-                      value: /^\d{10}$/,
-                      message: "Enter a valid phone number",
-                    },
-                  })}
-                  // onChange={(e) => {
-                  //   phoneRegister.onChange(e);
-                  //   setCustomerDetails((prev) => ({
-                  //     ...prev,
-                  //     phone: e.target.value,
-                  //     name: prev?.name || "",
-                  //     email: prev?.email || "",
-                  //   }));
-                  // }}
+                  inputMode="numeric"
+                  maxLength={10}
+                  placeholder="10-digit number"
+                  onKeyDown={blockNonDigitKey}
+                  error={errors.customerPhone?.message}
+                  {...register("customerPhone", phoneValidation)}
                 />
-              </label>
-              {errors.customerPhone &&
-                typeof errors.customerPhone.message === "string" && (
-                  <p className="text-red-500 text-sm p-1">
-                    {errors.customerPhone.message}
-                  </p>
-                )}
-            </div>
-            <div>
-              <label className="mb-1 font-medium text-gray-700">
-                Customer Email Id
-                <sup className="text-pink-600 ml-[2px]">*</sup>
-                <input
-                  className="input-field w-full"
-                  title="Email Id"
+                <LabeledInput
+                  title="Email"
+                  required
                   type="email"
-                  placeholder="Enter Email Id"
-                  {...register("customerEmail", {
-                    required: "Email is required",
-                    pattern: {
-                      value:
-                        /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,4}$/,
-                      message: "Enter a valid email address",
-                    },
-                  })}
-                  // onChange={(e) => {
-                  //   emailRegister.onChange(e);
-                  //   setCustomerDetails((prev) => ({
-                  //     ...prev,
-                  //     email: e.target.value,
-                  //     phone: prev?.phone || "",
-                  //     name: prev?.name || "",
-                  //   }));
-                  // }}
+                  placeholder="name@example.com"
+                  error={errors.customerEmail?.message}
+                  {...register("customerEmail", emailValidation)}
                 />
-              </label>
+              </div>
+            </Card>
 
-              {errors.customerEmail &&
-                typeof errors.customerEmail.message === "string" && (
-                  <p className="text-red-500 text-sm p-1">
-                    {errors.customerEmail.message}
+            <Card
+              title="Items"
+              subtitle={
+                hasItems
+                  ? `${totals.itemCount} line${totals.itemCount === 1 ? "" : "s"} · ${totals.units} unit${totals.units === 1 ? "" : "s"}`
+                  : "Nothing added yet"
+              }
+              flush
+              action={
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={<FiPlus size={14} />}
+                  onClick={addLine}>
+                  Add item
+                </Button>
+              }>
+              <div className="overflow-x-auto border-t border-line">
+                <div className="min-w-[700px]">
+                  {/* Header */}
+                  <div
+                    className={`grid ${GRID} items-center gap-2 border-b border-line bg-surface-subtle px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.06em] text-ink-muted`}>
+                    <span>Item</span>
+                    <span>Rate (₹)</span>
+                    <span>Qty</span>
+                    <span>Tax type</span>
+                    <span>Tax %</span>
+                    <span className="text-right">Line total</span>
+                    <span className="sr-only">Remove</span>
+                  </div>
+
+                  {/* Rows */}
+                  <div ref={gridRef} className="divide-y divide-line-faint">
+                    {lines.map((line, index) => {
+                      const { tax, total } = lineTotals(line);
+                      const blank = !isFilled(line);
+                      const flagged =
+                        showLineErrors && blank && lines.length === 1;
+
+                      return (
+                        <div
+                          key={line.id}
+                          className={`grid ${GRID} items-center gap-2 px-4 py-1.5 transition-colors ${
+                            flagged ? "bg-danger-soft" : "hover:bg-surface-subtle"
+                          }`}
+                          onKeyDown={(e) => onRowKeyDown(e, index)}>
+                          <input
+                            data-line={line.id}
+                            data-field="itemName"
+                            className={`${cellClass} font-medium`}
+                            placeholder="Product or service name"
+                            value={line.itemName}
+                            onChange={(e) =>
+                              updateLine(line.id, "itemName", e.target.value)
+                            }
+                          />
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.01"
+                            className={`${cellClass} tnum`}
+                            placeholder="0.00"
+                            value={line.rate}
+                            onWheel={(e) =>
+                              (e.target as HTMLInputElement).blur()
+                            }
+                            onKeyDown={blockInvalidNumberKey}
+                            onChange={(e) =>
+                              updateLine(line.id, "rate", e.target.value)
+                            }
+                          />
+                          <input
+                            type="number"
+                            min={0}
+                            step="1"
+                            className={`${cellClass} tnum`}
+                            placeholder="0"
+                            value={line.qty}
+                            onWheel={(e) =>
+                              (e.target as HTMLInputElement).blur()
+                            }
+                            onKeyDown={blockInvalidNumberKey}
+                            onChange={(e) =>
+                              updateLine(line.id, "qty", e.target.value)
+                            }
+                          />
+                          <input
+                            className={cellClass}
+                            placeholder="GST"
+                            value={line.taxType}
+                            onChange={(e) =>
+                              updateLine(line.id, "taxType", e.target.value)
+                            }
+                          />
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            step="0.01"
+                            className={`${cellClass} tnum`}
+                            placeholder="0"
+                            value={line.taxPer}
+                            onWheel={(e) =>
+                              (e.target as HTMLInputElement).blur()
+                            }
+                            onKeyDown={blockInvalidNumberKey}
+                            onChange={(e) =>
+                              updateLine(line.id, "taxPer", e.target.value)
+                            }
+                          />
+                          <div className="pr-1 text-right">
+                            <p
+                              className={`text-sm font-bold tnum ${
+                                blank ? "text-ink-faint" : "text-ink"
+                              }`}>
+                              {formatINR(total)}
+                            </p>
+                            {tax > 0 && (
+                              <p className="text-[11px] text-ink-faint tnum">
+                                incl. {formatINR(tax)} tax
+                              </p>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeLine(line.id)}
+                            aria-label={`Remove line ${index + 1}`}
+                            title="Remove line"
+                            className="flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-ink-faint transition-colors hover:bg-danger-soft hover:text-danger">
+                            <FiTrash2 size={15} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="flex items-center justify-between gap-3 border-t border-line px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={addLine}
+                      className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-[13px] font-semibold text-munsell_blue transition-colors hover:bg-munsell_blue-5">
+                      <FiPlus size={15} />
+                      Add another item
+                    </button>
+                    <p className="hidden items-center gap-1.5 text-xs text-ink-faint sm:flex">
+                      <kbd className="kbd">
+                        <FiCornerDownLeft size={9} />
+                      </kbd>
+                      on the last row adds a line
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          {/* ---------------------------------------------------------------
+              Cart / summary column — sticky, so the total is always in view
+              --------------------------------------------------------------- */}
+          <aside className="w-full shrink-0 xl:sticky xl:top-6 xl:w-[340px]">
+            <div className="card overflow-hidden">
+              <header className="flex items-center gap-2.5 border-b border-line bg-surface-subtle px-5 py-3.5">
+                <FiShoppingCart size={16} className="text-munsell_blue" />
+                <h2 className="text-sm font-bold text-ink">Order summary</h2>
+                {hasItems && (
+                  <span className="ml-auto rounded-full bg-prussian_blue px-2 py-0.5 text-[11px] font-bold text-white tnum">
+                    {totals.units}
+                  </span>
+                )}
+              </header>
+
+              {!hasItems ? (
+                <EmptyState
+                  compact
+                  icon={FiShoppingCart}
+                  title="Cart is empty"
+                  description="Add an item on the left and the totals will appear here."
+                />
+              ) : (
+                <div className="px-5 py-4">
+                  <dl className="space-y-2.5 text-sm">
+                    <div className="flex items-center justify-between">
+                      <dt className="text-ink-muted">Subtotal</dt>
+                      <dd className="font-semibold text-ink tnum">
+                        {formatINR(totals.base)}
+                      </dd>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <dt className="text-ink-muted">Tax</dt>
+                      <dd className="font-semibold text-ink tnum">
+                        {formatINR(totals.tax)}
+                      </dd>
+                    </div>
+                    {totals.discount > 0 && (
+                      <div className="flex items-center justify-between">
+                        <dt className="text-ink-muted">Discount</dt>
+                        <dd className="font-semibold text-success tnum">
+                          −{formatINR(totals.discount)}
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+
+                  <div className="my-4">
+                    <Field label="Discount (₹)" htmlFor="discount">
+                      <Input
+                        id="discount"
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        placeholder="0.00"
+                        className="tnum"
+                        prefix={<TbCurrencyRupee size={15} />}
+                        value={discount}
+                        onKeyDown={blockInvalidNumberKey}
+                        onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                        onChange={(e) => setDiscount(e.target.value)}
+                      />
+                    </Field>
+                  </div>
+
+                  <div className="rule-fade" />
+
+                  <div className="flex items-end justify-between pt-4">
+                    <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-ink-muted">
+                      Amount due
+                    </span>
+                    <span className="text-[28px] font-bold leading-none text-ink tnum">
+                      {formatINR(totals.grand)}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Payment method */}
+              <div className="border-t border-line px-5 py-4">
+                <p className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.08em] text-ink-muted">
+                  Payment method
+                </p>
+                <div
+                  role="radiogroup"
+                  aria-label="Payment method"
+                  className="grid grid-cols-3 gap-2">
+                  {PAYMENT_OPTIONS.map((option) => {
+                    const selected = payment === option.id;
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        onClick={() => setPayment(option.id)}
+                        className={`flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border-2 px-2 py-2.5 transition-all duration-150 ease-snap ${
+                          selected
+                            ? "border-munsell_blue bg-munsell_blue-5 shadow-xs"
+                            : "border-line bg-surface hover:border-line-strong hover:bg-surface-subtle"
+                        }`}>
+                        <img src={option.icon} alt="" className="h-7 w-7" />
+                        <span
+                          className={`text-xs font-semibold ${
+                            selected ? "text-munsell_blue-700" : "text-ink-soft"
+                          }`}>
+                          {option.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="space-y-2 border-t border-line bg-surface-subtle px-5 py-4">
+                {showLineErrors && !hasItems && (
+                  <p className="mb-1 flex items-start gap-1.5 text-xs font-medium text-danger">
+                    <FiAlertCircle size={13} className="mt-px shrink-0" />
+                    Add at least one item to create the invoice.
                   </p>
                 )}
-            </div>
-          </div>
-        </div>
-
-        {/* Purchased Items Details */}
-        <h2 className="text-xl mt-2 p-1 font-medium">
-          Purchased Items Details
-        </h2>
-        <div className="mt-4p p-4 rounded-lg border">
-          <CustomDataTable columns={invoiceCols} data={lineItems} />
-          <div className="flex w-full justify-end p-2">
-            <Button onClick={AddLineItem}>Add Item</Button>
-          </div>
-          <div className="w-full flex justify-end">
-            <div className="text-sm grid grid-cols-2 gap-y-3 gap-x-3 mt-6 items-center justify-items-end">
-              <div>Discount:</div>
-              <Input
-                type="number"
-                name="totalDiscount"
-                value={totalDiscount}
-                onChange={discountHandler}
-                placeholder={"Discount (optional)"}
-              />
-              <div>Total Tax:</div>
-              <Input
-                disabled={true}
-                type="number"
-                name="totalTax"
-                value={totalTax}
-                placeholder={"Total Tax"}
-              />
-              <div>Total Amount:</div>
-              <Input
-                disabled={true}
-                type="number"
-                value={totalAmount}
-                name="totalAmount"
-                placeholder={"Total Amount"}
-              />
-            </div>
-          </div>
-          <div className="flex flex-col w-full mx-auto mt-4 mb-5">
-            <h2 className="text-base font-medium mb-2">Select Payment Type</h2>
-            <div className="grid grid-cols-3 gap-4">
-              {paymentOptions.map((option) => (
-                <button
+                <Button
+                  type="submit"
+                  size="lg"
+                  fullWidth
+                  loading={submitting}
+                  title={`Create invoice (${MOD_KEY}↵)`}>
+                  {submitting
+                    ? "Creating…"
+                    : `Create invoice · ${formatINR(totals.grand)}`}
+                </Button>
+                <Button
                   type="button"
-                  key={option.id}
-                  onClick={() => handleSelect(option.id)}
-                  className={`flex items-center gap-2 p-1 rounded-lg shadow-md transition-all duration-200 cursor-pointer border-2 
-              ${
-                selectedPayment === option.id
-                  ? "border-prussian_blue bg-prussian_blue-5"
-                  : "border-gray-200 bg-gray-50"
-              }
-            `}>
-                  <span className="text-3xl">
-                    <img src={option.icon} className="w-12 p-1" />
-                  </span>
-                  <span className="text-base font-medium">{option.label}</span>
-                </button>
-              ))}
+                  variant="ghost"
+                  size="sm"
+                  fullWidth
+                  icon={<FiRotateCcw size={14} />}
+                  onClick={resetAll}>
+                  Reset
+                </Button>
+                <p className="pt-1 text-center text-[11px] text-ink-faint">
+                  Press <kbd className="kbd">{MOD_KEY}</kbd>{" "}
+                  <kbd className="kbd">↵</kbd> to create
+                </p>
+              </div>
             </div>
-          </div>
-          <div className="flex gap-4 items-center">
-            <Button type="submit">Create</Button>
-            <Button type="button" active={false} onClick={() => console.log()}>
-              Reset
-            </Button>
-          </div>
+          </aside>
         </div>
-        {/* <DevTool control={control} /> */}
       </form>
-    </div>
+    </AppLayout>
   );
 }
 

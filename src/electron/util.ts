@@ -8,22 +8,24 @@ export function isDev(): boolean {
 
 export function ipcHandle<Key extends keyof EventPayloadMapping>(
   key: Key,
-  handler: () => EventPayloadMapping[Key]
+  handler: (
+    ...args: EventPayloadMapping[Key]["args"]
+  ) => EventPayloadMapping[Key]["return"] | Promise<EventPayloadMapping[Key]["return"]>
 ) {
-  ipcMain.handle(key, (event) => {
+  ipcMain.handle(key, (event, ...args: EventPayloadMapping[Key]["args"]) => {
     if (event.senderFrame) {
       validateEventFrame(event.senderFrame);
     } else {
       throw new Error("senderFrame is null");
     }
-    return handler();
+    return handler(...args);
   });
 }
 
 export function ipcWebContentsSend<Key extends keyof EventPayloadMapping>(
   key: Key,
   webContents: WebContents,
-  payload: EventPayloadMapping[Key]
+  payload: EventPayloadMapping[Key]["return"]
 ) {
   webContents.send(key, payload);
 }

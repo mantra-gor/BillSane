@@ -1,35 +1,67 @@
 import { NavLink, Outlet } from "react-router";
+import AppLayout from "../components/core/layout/AppLayout";
+import PageHeader from "../components/ui/elements/PageHeader";
+import { SETTINGS_TABS } from "../router/navigation";
 
+/**
+ * Settings frame. A vertical rail beats the old pill row: the tab labels stay
+ * readable, each carries a description, and adding a tab doesn't squeeze the
+ * others.
+ */
 function Settings() {
-  const settingsOptions = [
-    { title: "Account", path: "accounts" },
-    { title: "Security", path: "security" },
-    { title: "Appearance", path: "appearance" },
-    { title: "Configurations", path: "config" },
-  ];
-
   return (
-    <div className="w-full h-full p-6 rounded-2xl bg-white border shadow-xl">
-      <h1 className="text-xl py-1 px-4 font-semibold">Settings</h1>
-      <div className="px-4 mt-3">
-        <div className="px-2 py-2 bg-primary-25 rounded-xl flex gap-8">
-          {settingsOptions.map((item, index) => (
-            <NavLink
-              key={index}
-              to={item.path}
-              className={({ isActive }) =>
-                `font-semibold px-4 py-1 rounded-lg duration-200
-              ${isActive ? "bg-munsell_blue text-white " : "inactive-class"}`
-              }>
-              {item.title}
-            </NavLink>
-          ))}
-        </div>
-        <div>
+    <AppLayout className="space-y-5">
+      <PageHeader
+        title="Settings"
+        description="Configure your profile, business details and where data is stored."
+      />
+
+      <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+        <nav className="w-full shrink-0 lg:sticky lg:top-6 lg:w-64">
+          <ul className="card space-y-1 p-2">
+            {SETTINGS_TABS.map((tab) => (
+              <li key={tab.path}>
+                <NavLink
+                  to={tab.path}
+                  className={({ isActive }) =>
+                    `flex items-start gap-3 rounded-xl px-3 py-2.5 transition-all duration-150 ease-snap ${
+                      isActive
+                        ? "bg-prussian_blue text-white shadow-brand"
+                        : "text-ink-soft hover:bg-surface-muted"
+                    }`
+                  }>
+                  {({ isActive }) => (
+                    <>
+                      <tab.icon
+                        size={17}
+                        className={`mt-0.5 shrink-0 ${
+                          isActive ? "text-munsell_blue-400" : "text-ink-faint"
+                        }`}
+                      />
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold">
+                          {tab.title}
+                        </span>
+                        <span
+                          className={`mt-0.5 block text-xs leading-snug ${
+                            isActive ? "text-white/60" : "text-ink-faint"
+                          }`}>
+                          {tab.description}
+                        </span>
+                      </span>
+                    </>
+                  )}
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        <div className="min-w-0 flex-1">
           <Outlet />
         </div>
       </div>
-    </div>
+    </AppLayout>
   );
 }
 

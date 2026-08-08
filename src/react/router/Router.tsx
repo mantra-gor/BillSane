@@ -6,11 +6,12 @@ import Home from "../pages/Home";
 import InvoiceCreate from "../pages/InvoiceCreate";
 import Invoice from "../../invoice-templates/Invoice";
 import Dashboard from "../pages/Dashboard";
+import Sales from "../pages/Sales";
 import Settings from "../pages/Settings";
 import Account from "../pages/Settings/Account";
-import Security from "../pages/Settings/Security";
 import Appearance from "../pages/Settings/Appearance";
 import Configurations from "../pages/Settings/Configurations";
+import Database from "../pages/Settings/Database";
 import AuthLayout from "../components/core/layout/AuthLayout";
 import ProtectedRoute from "./ProtectedRoute";
 
@@ -50,8 +51,12 @@ const Router = () => {
               element: <Invoice />,
             },
             {
+              path: "invoice/view/:id",
+              element: <Invoice />,
+            },
+            {
               path: "sales",
-              element: <>Sales</>,
+              element: <Sales />,
             },
             {
               path: "settings",
@@ -66,16 +71,16 @@ const Router = () => {
                   element: <Account />,
                 },
                 {
-                  path: "security",
-                  element: <Security />,
-                },
-                {
                   path: "appearance",
                   element: <Appearance />,
                 },
                 {
                   path: "config",
                   element: <Configurations />,
+                },
+                {
+                  path: "database",
+                  element: <Database />,
                 },
               ],
             },

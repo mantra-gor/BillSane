@@ -2,76 +2,294 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  overflow-x: hidden;
-  user-select: none;
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+@layer base {
+  :root {
+    color-scheme: light;
+    /* Mirrors of the Tailwind semantic tokens, for the handful of places that
+       need a raw value (third-party widgets, inline SVG, canvas). */
+    --shell: #062639;
+    --canvas: #f1f5f9;
+    --surface: #ffffff;
+    --line: #e3eaf1;
+    --line-strong: #cbd8e3;
+    --ink: #0c2231;
+    --ink-muted: #64798b;
+    --brand: #053247;
+    --accent: #298e9e;
+  }
+
+  * {
+    /* Consistent hairlines everywhere; Tailwind's preflight sets border-style
+       but leans on its own default color. */
+    border-color: var(--line);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-canvas font-sans text-ink antialiased;
+    overflow-x: hidden;
+    user-select: none;
+    font-feature-settings:
+      "cv02",
+      "cv03",
+      "cv04",
+      "cv11";
+    text-rendering: optimizeLegibility;
+  }
+
+  /* One focus treatment for the whole app: a soft brand halo plus a crisp
+     inner ring, so it reads on both light surfaces and the dark shell. */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 0.375rem;
+  }
+
+  /* Mouse users never see the ring; keyboard users always do. */
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  ::selection {
+    background: rgba(41, 142, 158, 0.22);
+    color: var(--ink);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply text-ink;
+    letter-spacing: -0.014em;
+  }
+
+  img {
+    -webkit-user-drag: none;
+  }
+
+  input::-webkit-outer-spin-button,
+  input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+
+  /* Slim, unobtrusive scrollbars — the default macOS/Windows bars look heavy
+     inside a chromeless desktop shell. */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: rgba(100, 121, 139, 0.28);
+    border-radius: 9999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(100, 121, 139, 0.45);
+    background-clip: content-box;
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
 }
+
+/* ==========================================================================
+   Components
+   ========================================================================== */
+
+@layer components {
+  /* --- Form controls ----------------------------------------------------
+     `.input-field` is the shared shape for inputs, selects and textareas so a
+     row of mixed controls lines up to the pixel. */
+  .input-field {
+    @apply w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-sm text-ink shadow-xs transition-all duration-150 ease-snap;
+  }
+
+  .input-field::placeholder {
+    @apply text-ink-faint;
+  }
+
+  .input-field:hover:not(:disabled):not(:focus) {
+    @apply border-line-strong;
+  }
+
+  .input-field:focus {
+    @apply border-munsell_blue outline-none;
+    box-shadow: 0 0 0 3px rgba(41, 142, 158, 0.16);
+  }
+
+  .input-field:disabled {
+    @apply cursor-not-allowed border-line bg-surface-muted text-ink-muted;
+  }
+
+  .input-field[aria-invalid="true"] {
+    @apply border-danger-border bg-danger-soft;
+  }
+
+  .input-field[aria-invalid="true"]:focus {
+    @apply border-danger;
+    box-shadow: 0 0 0 3px rgba(220, 43, 43, 0.14);
+  }
+
+  /* Native select needs its own arrow once the default appearance is dropped. */
+  select.input-field {
+    @apply cursor-pointer appearance-none bg-no-repeat pr-9;
+    background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%2364798B' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+    background-position: right 0.75rem center;
+    background-size: 1rem;
+  }
+
+  /* --- Surfaces ---------------------------------------------------------- */
+  .card {
+    @apply rounded-2xl border border-line bg-surface shadow-card;
+  }
+
+  .card-interactive {
+    @apply transition-all duration-200 ease-snap hover:-translate-y-0.5 hover:border-line-strong hover:shadow-raised;
+  }
+
+  /* Hairline separator that fades at both ends — softer than a full-bleed rule. */
+  .rule-fade {
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      transparent,
+      var(--line-strong),
+      transparent
+    );
+  }
+
+  /* --- Loading ----------------------------------------------------------- */
+  .skeleton {
+    @apply rounded-md bg-surface-muted;
+    background-image: linear-gradient(
+      90deg,
+      rgba(226, 233, 240, 0) 0%,
+      rgba(255, 255, 255, 0.85) 50%,
+      rgba(226, 233, 240, 0) 100%
+    );
+    background-size: 200% 100%;
+    @apply animate-shimmer;
+  }
+
+  /* --- Typography accents ------------------------------------------------ */
+  /* Hand-drawn style underline used on the auth headline. */
+  .accent-underline {
+    position: relative;
+    white-space: nowrap;
+  }
+
+  .accent-underline::after {
+    content: "";
+    position: absolute;
+    left: -2%;
+    bottom: -0.18em;
+    width: 104%;
+    height: 0.36em;
+    border-radius: 9999px;
+    background: linear-gradient(
+      90deg,
+      rgba(41, 142, 158, 0.9),
+      rgba(41, 142, 158, 0.25)
+    );
+    transform-origin: left center;
+  }
+
+  /* Keyboard-shortcut chip. */
+  .kbd {
+    @apply inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded border border-line-strong bg-surface-subtle px-1.5 font-numeric text-[10px] font-semibold text-ink-muted shadow-xs;
+  }
+
+  .kbd-dark {
+    @apply inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded border border-shell-border bg-shell-raised px-1.5 font-numeric text-[10px] font-semibold text-white/60;
+  }
+}
+
+/* ==========================================================================
+   Utilities
+   ========================================================================== */
+
+@layer utilities {
+  /* Tabular figures — apply to any column of money or counts. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  .scroll-area {
+    @apply overflow-y-auto overscroll-contain;
+  }
+
+  /* Fades content out as it scrolls under a sticky header. */
+  .mask-fade-b {
+    -webkit-mask-image: linear-gradient(to bottom, #000 85%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 85%, transparent 100%);
+  }
+
+  .drag-region {
+    -webkit-app-region: drag;
+  }
+
+  .no-drag {
+    -webkit-app-region: no-drag;
+  }
+}
+
+/* ==========================================================================
+   Print — invoice output only
+   ========================================================================== */
 
 .printContent {
   display: none;
+}
 
-  @media print {
+@media print {
+  .printContent {
     display: block;
   }
-}
 
-.scrollbar-hide-in-print::-webkit-scrollbar {
-  @media print {
-    display: none;
-  }
-}
-
-.hideContent {
-  @media print {
+  .hideContent {
     display: none !important;
   }
+
+  .scrollbar-hide-in-print::-webkit-scrollbar {
+    display: none;
+  }
+
+  body {
+    background: #ffffff;
+  }
 }
 
-.underlined1 {
-  position: relative;
-}
-.underline-clip1:after {
-  content: "";
-  position: absolute;
-  top: 90%;
-  width: 120%;
-  rotate: 48eg;
-  aspect-ratio: 3 / 1;
-  left: 50%;
-  transform: translate(-50%, 0);
-  border-radius: 50%;
-  border: 5px solid #d0a1eb;
-  /* Use a clip-path to hide and show the bits you want */
-  clip-path: polygon(0 0, 50% 50%, 100% 0);
-}
-
-.underlined2 {
-  position: relative;
-}
-.underline-clip2:after {
-  content: "";
-  position: absolute;
-  top: 100%;
-  width: 150%;
-  rotate: 1deg;
-  aspect-ratio: 4 / 1;
-  left: 50%;
-  transform: translate(-50%, 0);
-  border-radius: 50%;
-  border: 6px solid #6842ffd3;
-  /* Use a clip-path to hide and show the bits you want */
-  clip-path: polygon(0 0, 50% 50%, 100% 0);
-}
-
-img {
-  -webkit-user-drag: none;
-}
-input::-webkit-outer-spin-button,
-input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-.input-field {
-  @apply p-2 rounded-md bg-primary disabled:bg-primary-5 font-normal border;
-  box-shadow: "0px -1px 1px 0px rgba(20, 20, 20, 0.1) inset";
+/* Honour the OS "reduce motion" setting. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

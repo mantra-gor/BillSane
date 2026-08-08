@@ -1,37 +1,65 @@
+import React, { forwardRef } from "react";
+import Field from "./Field";
+import Input from "./Input";
+
 interface LabeledInputProps
-  extends React.InputHTMLAttributes<HTMLInputElement> {
-  name?: string;
+  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, "prefix"> {
   title: string;
   required?: boolean;
+  hint?: string;
+  error?: string;
+  prefix?: React.ReactNode;
+  suffix?: React.ReactNode;
   className?: string;
+  /** Applied to the wrapping `Field` — use for grid spans. */
+  fieldClassName?: string;
 }
 
-function LabeledInput({
-  name,
-  title,
-  required = false,
-  className = "",
-  ...rest
-}: LabeledInputProps) {
-  console.log(name);
+/**
+ * A labelled text input: `Field` + `Input` wired together.
+ *
+ * The control id is taken from `name`, which `register()` already supplies —
+ * callers don't pass `name` separately, which would collide with the spread.
+ */
+const LabeledInput = forwardRef<HTMLInputElement, LabeledInputProps>(
+  (
+    {
+      title,
+      required = false,
+      hint,
+      error,
+      prefix,
+      suffix,
+      className = "",
+      fieldClassName = "",
+      ...rest
+    },
+    ref
+  ) => {
+    const fieldId = rest.id ?? rest.name;
 
-  return (
-    <div className="flex flex-col col-span-1">
-      <label htmlFor={name} className="mb-1 font-medium text-gray-700">
-        {title}
-        {required && <sup className="text-pink-600 ml-1">*</sup>}
-      </label>
-      <input
-        // id={name}
-        // name={name + "1"}
-        className={`border p-3 input-field w-full rounded-md ${className}`}
-        style={{
-          boxShadow: "0px -1px 1px 0px rgba(20, 20, 20, 0.1) inset",
-        }}
-        {...rest} // keep this last so hook-form's props (like onChange) take priority
-      />
-    </div>
-  );
-}
+    return (
+      <Field
+        label={title}
+        htmlFor={fieldId}
+        required={required}
+        hint={hint}
+        error={error}
+        className={fieldClassName}>
+        <Input
+          ref={ref}
+          id={fieldId}
+          invalid={Boolean(error)}
+          prefix={prefix}
+          suffix={suffix}
+          className={className}
+          {...rest} // last, so hook-form's onChange/onBlur win
+        />
+      </Field>
+    );
+  }
+);
+
+LabeledInput.displayName = "LabeledInput";
 
 export default LabeledInput;

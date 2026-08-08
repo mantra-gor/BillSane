@@ -11,8 +11,56 @@ type StaticData = {
 };
 
 type EventPayloadMapping = {
-  statistics: Statistics;
-  getStaticData: StaticData;
+  statistics: { args: []; return: Statistics };
+  getStaticData: { args: []; return: StaticData };
+  "db:getConfig": {
+    args: [];
+    return: import("./src/electron/db/types.js").DbConfigRedacted;
+  };
+  "db:saveConfig": {
+    args: [import("./src/electron/db/types.js").DbConfigInput];
+    return: import("./src/electron/db/types.js").DbOperationResult;
+  };
+  "db:testConnection": {
+    args: [import("./src/electron/db/types.js").DbConfigInput];
+    return: import("./src/electron/db/types.js").DbOperationResult;
+  };
+  "db:getStatus": {
+    args: [];
+    return: import("./src/electron/db/types.js").DbStatus;
+  };
+  "business:get": {
+    args: [];
+    return: import("./src/electron/domain/types.js").BusinessConfig;
+  };
+  "business:save": {
+    args: [Omit<import("./src/electron/domain/types.js").BusinessConfig, "logo">];
+    return: import("./src/electron/db/types.js").DbOperationResult;
+  };
+  "business:saveLogo": {
+    args: [string | null];
+    return: import("./src/electron/db/types.js").DbOperationResult;
+  };
+  "invoice:list": {
+    args: [];
+    return: import("./src/electron/domain/types.js").SavedInvoice[];
+  };
+  "invoice:get": {
+    args: [string];
+    return: import("./src/electron/domain/types.js").SavedInvoice | undefined;
+  };
+  "invoice:create": {
+    args: [import("./src/electron/domain/types.js").SavedInvoiceInput];
+    return: import("./src/electron/domain/types.js").SavedInvoice;
+  };
+  "invoice:delete": {
+    args: [string];
+    return: import("./src/electron/db/types.js").DbOperationResult;
+  };
+  "insights:dashboard": {
+    args: [import("./src/electron/domain/types.js").InsightsRangeInput];
+    return: import("./src/electron/domain/types.js").DashboardInsights;
+  };
 };
 
 type UnsubscribeFunction = () => void;
@@ -40,7 +88,9 @@ interface LineItem {
   id: number;
   itemName?: string;
   rate?: number;
-  taxType?: number;
+  // Free-text label (e.g. "GST"), not a numeric code - matches what the
+  // InvoiceCreate "Tax Type" column actually collects (a text input).
+  taxType?: string;
   taxPer?: number;
   qty?: number;
   tax?: number;
@@ -53,5 +103,37 @@ interface Window {
       callback: (statistics: Statistics) => void
     ) => UnsubscribeFunction;
     getStaticData: () => Promise<StaticData>;
+    getDbConfig: () => Promise<
+      import("./src/electron/db/types.js").DbConfigRedacted
+    >;
+    saveDbConfig: (
+      input: import("./src/electron/db/types.js").DbConfigInput
+    ) => Promise<import("./src/electron/db/types.js").DbOperationResult>;
+    testDbConnection: (
+      input: import("./src/electron/db/types.js").DbConfigInput
+    ) => Promise<import("./src/electron/db/types.js").DbOperationResult>;
+    getDbStatus: () => Promise<import("./src/electron/db/types.js").DbStatus>;
+    getBusinessConfig: () => Promise<
+      import("./src/electron/domain/types.js").BusinessConfig
+    >;
+    saveBusinessConfig: (
+      input: Omit<import("./src/electron/domain/types.js").BusinessConfig, "logo">
+    ) => Promise<import("./src/electron/db/types.js").DbOperationResult>;
+    saveBusinessLogo: (
+      dataUrl: string | null
+    ) => Promise<import("./src/electron/db/types.js").DbOperationResult>;
+    getInvoices: () => Promise<import("./src/electron/domain/types.js").SavedInvoice[]>;
+    getInvoiceById: (
+      id: string
+    ) => Promise<import("./src/electron/domain/types.js").SavedInvoice | undefined>;
+    createInvoice: (
+      input: import("./src/electron/domain/types.js").SavedInvoiceInput
+    ) => Promise<import("./src/electron/domain/types.js").SavedInvoice>;
+    deleteInvoice: (
+      id: string
+    ) => Promise<import("./src/electron/db/types.js").DbOperationResult>;
+    getDashboardInsights: (
+      range: import("./src/electron/domain/types.js").InsightsRangeInput
+    ) => Promise<import("./src/electron/domain/types.js").DashboardInsights>;
   };
 }

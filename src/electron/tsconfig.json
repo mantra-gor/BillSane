@@ -3,6 +3,8 @@
     "strict": true,
     "target": "ESNext",
     "module": "NodeNext",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
     "outDir": "../../dist-electron",
     "skipLibCheck": true,
     "types": ["../../types"]
