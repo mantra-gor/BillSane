@@ -46,6 +46,53 @@ tests are needed, add the tooling first.
 > Monitor starter** this was scaffolded from. They are not billing features. Replace or
 > remove them as real billing/ERP IPC is added — don't build on them.
 
+## Data layer — two modes only
+
+BillSane has exactly **two** data modes ([db/types.ts](src/electron/db/types.ts) `DbMode`):
+
+- **`offline`** — local SQLite (`billsane.db` in userData) and nothing else.
+- **`hybrid`** — the same local SQLite **plus** a PostgreSQL cloud database it syncs
+  with. Local stays the read/write path so the app keeps working offline.
+
+Rules that follow from this:
+
+- SQLite is the runtime source of truth in *both* modes. `initializeDatabase()`
+  ([connectionManager.ts](src/electron/db/connectionManager.ts)) always opens the local
+  file and never blocks launch on the network. Don't reintroduce "pick your engine".
+- **Cloud sync is not built yet.** Hybrid currently only persists + tests the Postgres
+  credentials (encrypted via `safeStorage` in
+  [configStore.ts](src/electron/db/configStore.ts)); Settings → Database says so
+  honestly. The sync engine (change tracking, conflict resolution, background push/pull)
+  is the next major piece of work — build it behind `mode === "hybrid"`.
+- Entities and migrations must stay portable across **sqlite + postgres** (they run on
+  both in hybrid), which is why migrations use TypeORM's `Table` builder rather than raw
+  SQL and money columns go through `decimalTransformer`. MySQL support is gone —
+  the `mysql2` dependency was removed.
+- Old `db-config.json` files (the previous `backend: local|postgres|mysql` shape) are
+  migrated on read: `postgres` → hybrid + cloud credentials, anything else → offline.
+
+## Inventory & the item catalog
+
+`Product` ([entities/Product.ts](src/electron/db/entities/Product.ts)) backs both
+`/inventory` and the item search on an invoice line. Rules worth knowing before you
+touch it:
+
+- **`nameKey` is the natural key** — `normalizeName()` in
+  [domain/products.ts](src/electron/domain/products.ts) folds case and collapses
+  whitespace, the same trick `normalizeEmail` plays for customers. Match on it exactly;
+  `LOWER(name) = ?` would throw away the index.
+- **Typing a name that isn't in the catalog is a normal path, not an error.**
+  `invoice:create` runs `resolveLineProducts`, which links or creates, so the counter
+  never has to stop and set an item up first.
+- **`stockQty === null` means "never counted"**, which is not the same as `0`. Stock
+  movement skips nulls and skips `kind === "service"` entirely.
+- **Selling is never blocked.** Stock is allowed to go negative; `/inventory` flags that
+  as "Oversold" rather than refusing the sale.
+- Invoice lines snapshot `itemName`/`rate`/`taxType`/`taxPer`, so the product FK is
+  `ON DELETE SET NULL` — retiring a catalog item leaves issued invoices untouched.
+- `invoice:create` and `invoice:delete` are **transactional** because they move stock.
+  Keep them that way.
+
 ## Renderer layout
 
 ```
@@ -67,7 +114,8 @@ src/react/
 │   ├── ui/feedback/  ToastProvider + toastContext (useToast)
 │   └── ui/elements/  Button, Input, Select, Field, LabeledInput, Card, Badge,
 │                     Modal, Skeleton, EmptyState, PageHeader, SegmentedControl,
-│                     ImagePicker, StatTile, DatePicker, CustomDataTable
+│                     ImagePicker, StatTile, DatePicker, CustomDataTable,
+│                     ProductSelect (react-select, for invoice item lookup)
 └── assets/           branding, resources, lottie
 src/invoice-templates/ Invoice.tsx — print-ready invoice (kept separate from app chrome)
 ```
@@ -143,9 +191,13 @@ Registering the *route* is still separate, in `Router.tsx`.
   confirm which branch is live before extending it.
 - **Sign-up is not implemented.** [SignUp.tsx](src/react/pages/SignUp.tsx) is an honest
   placeholder that routes back to sign-in, not a working form.
-- **Settings → Appearance is mostly presentational.** The theme picker shows light-only
-  (dark is not built); the one real preference is the default sidebar state, which
-  applies on next launch because `Home` reads it at mount.
+- **BillSane is light-only by design.** There is no dark mode and no theme picker —
+  `:root` pins `color-scheme: light` so the OS setting can't recolour native controls.
+  Don't add `dark:` variants or a theme toggle. (The navy sidebar/auth panel are brand
+  chrome via the `shell` tokens, not a dark theme.)
+- **Settings → Appearance is mostly presentational.** Its one real preference is the
+  default sidebar state, which applies on next launch because `Home` reads it at mount;
+  the rest is the brand palette reference.
 
 ## Where things go
 

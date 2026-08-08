@@ -2,7 +2,7 @@ import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
 
 // Single-row table (id is always 1) - enforced at the IPC layer, not the schema,
 // since a hard DB-level constraint for "exactly one row" isn't portable across
-// sqlite/postgres/mysql without dialect-specific tricks.
+// sqlite and postgres without dialect-specific tricks.
 @Entity()
 export class Business {
   @PrimaryGeneratedColumn()

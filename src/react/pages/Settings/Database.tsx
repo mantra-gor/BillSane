@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
-  FiAlertTriangle,
   FiCheckCircle,
-  FiDatabase,
+  FiCloud,
   FiHardDrive,
+  FiInfo,
   FiSave,
-  FiServer,
   FiXCircle,
   FiZap,
 } from "react-icons/fi";
@@ -23,10 +22,9 @@ import {
   type DbConfigInput,
 } from "../../utils/dbConfig";
 
-type DbBackend = DbConfigInput["backend"];
-type RemoteBackend = "postgres" | "mysql";
+type DbMode = DbConfigInput["mode"];
 
-type ConnectionFieldsForm = {
+type CloudFieldsForm = {
   host: string;
   port: number;
   username: string;
@@ -36,48 +34,40 @@ type ConnectionFieldsForm = {
 };
 
 type DatabaseFormValues = {
-  backend: DbBackend;
-  postgres: ConnectionFieldsForm;
-  mysql: ConnectionFieldsForm;
+  mode: DbMode;
+  cloud: CloudFieldsForm;
 };
 
-const emptyFields: ConnectionFieldsForm = {
+const POSTGRES_DEFAULT_PORT = 5432;
+
+const emptyCloud: CloudFieldsForm = {
   host: "",
-  port: 0,
+  port: POSTGRES_DEFAULT_PORT,
   username: "",
   password: "",
   database: "",
-  useSsl: false,
+  useSsl: true,
 };
 
-const defaultPorts: Record<RemoteBackend, number> = {
-  postgres: 5432,
-  mysql: 3306,
-};
-
-const backendOptions: {
-  id: DbBackend;
+const modeOptions: {
+  id: DbMode;
   label: string;
   description: string;
   icon: typeof FiHardDrive;
 }[] = [
   {
-    id: "local",
-    label: "Local",
-    description: "SQLite on this computer. No setup needed.",
+    id: "offline",
+    label: "Offline",
+    description:
+      "Everything stays in a local SQLite file on this computer. No setup, no internet.",
     icon: FiHardDrive,
   },
   {
-    id: "postgres",
-    label: "PostgreSQL",
-    description: "Connect to a PostgreSQL server.",
-    icon: FiDatabase,
-  },
-  {
-    id: "mysql",
-    label: "MySQL",
-    description: "Connect to a MySQL server.",
-    icon: FiServer,
+    id: "hybrid",
+    label: "Hybrid",
+    description:
+      "Local SQLite keeps working offline and syncs with your PostgreSQL cloud database.",
+    icon: FiCloud,
   },
 ];
 
@@ -90,12 +80,9 @@ type TestState =
 function Database() {
   const toast = useToast();
   const [loading, setLoading] = useState(true);
-  const [selectedBackend, setSelectedBackend] = useState<DbBackend>("local");
-  const [hasStoredPassword, setHasStoredPassword] = useState<
-    Record<RemoteBackend, boolean>
-  >({ postgres: false, mysql: false });
+  const [selectedMode, setSelectedMode] = useState<DbMode>("offline");
+  const [hasStoredPassword, setHasStoredPassword] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [restartNeeded, setRestartNeeded] = useState(false);
   const [testState, setTestState] = useState<TestState>({ status: "idle" });
 
   const {
@@ -106,30 +93,18 @@ function Database() {
     setValue,
     formState: { errors },
   } = useForm<DatabaseFormValues>({
-    defaultValues: {
-      backend: "local",
-      postgres: { ...emptyFields, port: defaultPorts.postgres },
-      mysql: { ...emptyFields, port: defaultPorts.mysql },
-    },
+    defaultValues: { mode: "offline", cloud: emptyCloud },
   });
 
   useEffect(() => {
     let cancelled = false;
     getDbConfig().then((config) => {
       if (cancelled) return;
-      setSelectedBackend(config.backend);
-      setHasStoredPassword({
-        postgres: config.postgres?.hasStoredPassword ?? false,
-        mysql: config.mysql?.hasStoredPassword ?? false,
-      });
+      setSelectedMode(config.mode);
+      setHasStoredPassword(config.cloud?.hasStoredPassword ?? false);
       reset({
-        backend: config.backend,
-        postgres: config.postgres
-          ? { ...config.postgres, password: "" }
-          : { ...emptyFields, port: defaultPorts.postgres },
-        mysql: config.mysql
-          ? { ...config.mysql, password: "" }
-          : { ...emptyFields, port: defaultPorts.mysql },
+        mode: config.mode,
+        cloud: config.cloud ? { ...config.cloud, password: "" } : emptyCloud,
       });
       setLoading(false);
     });
@@ -138,27 +113,27 @@ function Database() {
     };
   }, [reset]);
 
-  const handleSelectBackend = (backend: DbBackend) => {
-    setSelectedBackend(backend);
-    setValue("backend", backend);
+  const handleSelectMode = (mode: DbMode) => {
+    setSelectedMode(mode);
+    setValue("mode", mode);
     setTestState({ status: "idle" });
   };
 
   const buildInput = (data: DatabaseFormValues): DbConfigInput => ({
-    backend: data.backend,
-    postgres:
-      data.backend === "postgres"
-        ? { ...data.postgres, port: Number(data.postgres.port) }
-        : undefined,
-    mysql:
-      data.backend === "mysql"
-        ? { ...data.mysql, port: Number(data.mysql.port) }
+    mode: data.mode,
+    cloud:
+      data.mode === "hybrid"
+        ? { ...data.cloud, port: Number(data.cloud.port) }
         : undefined,
   });
 
   const handleTestConnection = async () => {
+    const cloud = getValues("cloud");
     setTestState({ status: "testing" });
-    const result = await testDbConnection(buildInput(getValues()));
+    const result = await testDbConnection({
+      ...cloud,
+      port: Number(cloud.port),
+    });
     if (result.ok) {
       setTestState({ status: "success" });
       toast.success("Connection successful");
@@ -173,10 +148,11 @@ function Database() {
     setSaving(false);
 
     if (result.ok) {
-      setRestartNeeded(true);
       toast.success(
         "Database settings saved",
-        "Restart BillSane to apply the new backend."
+        data.mode === "hybrid"
+          ? "Cloud sync will use these credentials once it's enabled."
+          : undefined
       );
     } else {
       toast.error("Couldn't save database settings", result.error);
@@ -191,28 +167,26 @@ function Database() {
     );
   }
 
-  const activeBackend = selectedBackend as RemoteBackend;
-  const isRemote = selectedBackend === "postgres" || selectedBackend === "mysql";
-  const fieldErrors = isRemote ? errors[activeBackend] : undefined;
+  const isHybrid = selectedMode === "hybrid";
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
       <Card
-        title="Storage backend"
-        subtitle="Choose where BillSane keeps its data. Changing this needs a restart.">
+        title="Data mode"
+        subtitle="BillSane always works from a local SQLite file. Hybrid adds a cloud copy on top of it.">
         <div
           role="radiogroup"
-          aria-label="Storage backend"
-          className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {backendOptions.map((option) => {
-            const selected = selectedBackend === option.id;
+          aria-label="Data mode"
+          className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {modeOptions.map((option) => {
+            const selected = selectedMode === option.id;
             return (
               <button
                 type="button"
                 key={option.id}
                 role="radio"
                 aria-checked={selected}
-                onClick={() => handleSelectBackend(option.id)}
+                onClick={() => handleSelectMode(option.id)}
                 className={`flex cursor-pointer flex-col items-start gap-2 rounded-xl border-2 p-4 text-left transition-all duration-150 ease-snap ${
                   selected
                     ? "border-munsell_blue bg-munsell_blue-5 shadow-xs"
@@ -238,117 +212,112 @@ function Database() {
         </div>
       </Card>
 
-      {isRemote && (
-        <Card
-          title="Connection"
-          subtitle={`Credentials for your ${
-            activeBackend === "postgres" ? "PostgreSQL" : "MySQL"
-          } server.`}>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <LabeledInput
-              title="Host"
-              required
-              placeholder="localhost"
-              error={fieldErrors?.host?.message}
-              {...register(`${activeBackend}.host`, {
-                required: "Host is required",
-              })}
-            />
-            <LabeledInput
-              title="Port"
-              required
-              type="number"
-              className="tnum"
-              error={fieldErrors?.port?.message}
-              {...register(`${activeBackend}.port`, {
-                required: "Port is required",
-                valueAsNumber: true,
-              })}
-            />
-            <LabeledInput
-              title="Database name"
-              required
-              placeholder="billsane"
-              error={fieldErrors?.database?.message}
-              {...register(`${activeBackend}.database`, {
-                required: "Database name is required",
-              })}
-            />
-            <LabeledInput
-              title="Username"
-              required
-              placeholder="Enter username"
-              error={fieldErrors?.username?.message}
-              {...register(`${activeBackend}.username`, {
-                required: "Username is required",
-              })}
-            />
-            <LabeledInput
-              title="Password"
-              type="password"
-              placeholder={
-                hasStoredPassword[activeBackend]
-                  ? "••••••••"
-                  : "Enter password"
-              }
-              hint={
-                hasStoredPassword[activeBackend]
-                  ? "Leave blank to keep the stored password"
-                  : undefined
-              }
-              {...register(`${activeBackend}.password`)}
-            />
-            <Field label="Security">
-              <label className="flex h-[42px] cursor-pointer items-center gap-2.5 rounded-lg border border-line bg-surface px-3 text-sm text-ink-soft transition-colors hover:border-line-strong">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 cursor-pointer accent-munsell_blue"
-                  {...register(`${activeBackend}.useSsl`)}
-                />
-                Use SSL
-              </label>
-            </Field>
-          </div>
-
-          {testState.status !== "idle" && (
-            <div className="mt-4">
-              {testState.status === "testing" && (
-                <p className="text-sm text-ink-muted">Testing connection…</p>
-              )}
-              {testState.status === "success" && (
-                <p className="flex items-center gap-2 rounded-lg border border-success-border bg-success-soft px-3 py-2.5 text-sm font-medium text-success-ink">
-                  <FiCheckCircle size={16} className="shrink-0" />
-                  Connection successful
-                </p>
-              )}
-              {testState.status === "error" && (
-                <p className="flex items-start gap-2 rounded-lg border border-danger-border bg-danger-soft px-3 py-2.5 text-sm font-medium text-danger-ink">
-                  <FiXCircle size={16} className="mt-0.5 shrink-0" />
-                  <span className="break-words">{testState.message}</span>
-                </p>
-              )}
+      {isHybrid && (
+        <>
+          <div className="flex items-start gap-3 rounded-xl border border-info-border bg-info-soft p-4">
+            <FiInfo size={17} className="mt-0.5 shrink-0 text-info" />
+            <div>
+              <p className="text-sm font-semibold text-ink">
+                Cloud sync isn't running yet
+              </p>
+              <p className="mt-0.5 text-sm text-ink-soft">
+                Save your PostgreSQL details now — BillSane keeps reading and
+                writing the local database until the sync engine ships.
+              </p>
             </div>
-          )}
-        </Card>
-      )}
-
-      {restartNeeded && (
-        <div className="flex items-start gap-3 rounded-xl border border-warning-border bg-warning-soft p-4">
-          <FiAlertTriangle size={17} className="mt-0.5 shrink-0 text-warning" />
-          <div>
-            <p className="text-sm font-semibold text-ink">Restart required</p>
-            <p className="mt-0.5 text-sm text-ink-soft">
-              Quit and reopen BillSane to start using the new database backend.
-            </p>
           </div>
-        </div>
+
+          <Card
+            title="Cloud database"
+            subtitle="Credentials for the PostgreSQL server BillSane will sync with.">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <LabeledInput
+                title="Host"
+                required
+                placeholder="db.example.com"
+                error={errors.cloud?.host?.message}
+                {...register("cloud.host", { required: "Host is required" })}
+              />
+              <LabeledInput
+                title="Port"
+                required
+                type="number"
+                className="tnum"
+                error={errors.cloud?.port?.message}
+                {...register("cloud.port", {
+                  required: "Port is required",
+                  valueAsNumber: true,
+                })}
+              />
+              <LabeledInput
+                title="Database name"
+                required
+                placeholder="billsane"
+                error={errors.cloud?.database?.message}
+                {...register("cloud.database", {
+                  required: "Database name is required",
+                })}
+              />
+              <LabeledInput
+                title="Username"
+                required
+                placeholder="Enter username"
+                error={errors.cloud?.username?.message}
+                {...register("cloud.username", {
+                  required: "Username is required",
+                })}
+              />
+              <LabeledInput
+                title="Password"
+                type="password"
+                placeholder={hasStoredPassword ? "••••••••" : "Enter password"}
+                hint={
+                  hasStoredPassword
+                    ? "Leave blank to keep the stored password"
+                    : undefined
+                }
+                {...register("cloud.password")}
+              />
+              <Field label="Security">
+                <label className="flex h-[42px] cursor-pointer items-center gap-2.5 rounded-lg border border-line bg-surface px-3 text-sm text-ink-soft transition-colors hover:border-line-strong">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 cursor-pointer accent-munsell_blue"
+                    {...register("cloud.useSsl")}
+                  />
+                  Use SSL
+                </label>
+              </Field>
+            </div>
+
+            {testState.status !== "idle" && (
+              <div className="mt-4">
+                {testState.status === "testing" && (
+                  <p className="text-sm text-ink-muted">Testing connection…</p>
+                )}
+                {testState.status === "success" && (
+                  <p className="flex items-center gap-2 rounded-lg border border-success-border bg-success-soft px-3 py-2.5 text-sm font-medium text-success-ink">
+                    <FiCheckCircle size={16} className="shrink-0" />
+                    Connection successful
+                  </p>
+                )}
+                {testState.status === "error" && (
+                  <p className="flex items-start gap-2 rounded-lg border border-danger-border bg-danger-soft px-3 py-2.5 text-sm font-medium text-danger-ink">
+                    <FiXCircle size={16} className="mt-0.5 shrink-0" />
+                    <span className="break-words">{testState.message}</span>
+                  </p>
+                )}
+              </div>
+            )}
+          </Card>
+        </>
       )}
 
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" loading={saving} icon={<FiSave size={15} />}>
           Save changes
         </Button>
-        {isRemote && (
+        {isHybrid && (
           <Button
             type="button"
             variant="secondary"

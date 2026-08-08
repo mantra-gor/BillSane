@@ -13,9 +13,95 @@ export interface BusinessConfig {
 }
 
 export interface InvoiceCustomerDetails {
+  // Set once the till has linked the invoice to an existing customer record.
+  // When present it, not the phone number, decides identity — that is what lets
+  // a returning customer's new number overwrite the one on file instead of
+  // silently creating a second record for the same person.
+  id?: number;
   name: string;
   phone: string;
   email?: string;
+}
+
+// --- Customers --------------------------------------------------------------
+
+export type CustomerMatchField = "phone" | "email";
+
+export interface CustomerSummary {
+  id: number;
+  name: string;
+  phone: string;
+  email: string | null;
+  // Trading history, aggregated in SQL — the till shows it so the owner can
+  // tell a regular from a one-off before deciding to merge or start fresh.
+  invoiceCount: number;
+  totalSpent: number;
+  lastInvoiceAt: string | null;
+}
+
+export interface CustomerMatch extends CustomerSummary {
+  // Which field(s) hit. A phone-only match on a customer whose email differs is
+  // the "they changed address" case; email-only is "they changed number".
+  matchedOn: CustomerMatchField[];
+}
+
+export interface CustomerLookupInput {
+  phone?: string;
+  email?: string;
+}
+
+export interface CustomerUpdateInput {
+  id: number;
+  name: string;
+  phone: string;
+  email: string | null;
+}
+
+// --- Products / inventory ---------------------------------------------------
+
+export type ProductKind = "product" | "service";
+
+/**
+ * The lean shape the invoice dropdown works with — everything needed to fill a
+ * line and nothing else, because this is fetched on every keystroke.
+ */
+export interface ProductOption {
+  id: number;
+  name: string;
+  sku: string | null;
+  kind: ProductKind;
+  unit: string;
+  hsnCode: string | null;
+  rate: number | null;
+  taxType: string | null;
+  taxPer: number | null;
+  // null = never counted. The Inventory page says so rather than showing "0".
+  stockQty: number | null;
+  lowStockAt: number | null;
+}
+
+/** A catalog row plus what it has actually sold — the Inventory table. */
+export interface ProductSummary extends ProductOption {
+  unitsSold: number;
+  revenue: number;
+  lastSoldAt: string | null;
+}
+
+export interface ProductInput {
+  name: string;
+  sku: string | null;
+  kind: ProductKind;
+  unit: string;
+  hsnCode: string | null;
+  rate: number | null;
+  taxType: string | null;
+  taxPer: number | null;
+  stockQty: number | null;
+  lowStockAt: number | null;
+}
+
+export interface ProductUpdateInput extends ProductInput {
+  id: number;
 }
 
 export interface SavedInvoice {
@@ -60,6 +146,30 @@ export interface DashboardKpis {
   invoiceCount: KpiValue;
   taxCollected: KpiValue;
   avgInvoice: KpiValue;
+  // --- Customer health ---
+  // Distinct customers billed in the window.
+  activeCustomers: KpiValue;
+  // Customers whose *first ever* invoice falls in the window — acquisition.
+  newCustomers: KpiValue;
+  // Share of the window's invoices that were not a customer's first purchase.
+  // Defined per-invoice rather than per-customer so it stays meaningful on
+  // every range, including "all" (where every customer is technically new).
+  repeatRatePct: KpiValue;
+  // Revenue ÷ active customers — what one customer is worth in this window.
+  avgCustomerValue: KpiValue;
+}
+
+// Revenue split by whether a purchase was a customer's first. Both sides are a
+// clean partition of the window's invoices, so the pair always sums to the
+// window's revenue and invoice count.
+export interface CustomerMixSide {
+  invoices: number;
+  revenue: number;
+}
+
+export interface CustomerMix {
+  firstTime: CustomerMixSide;
+  returning: CustomerMixSide;
 }
 
 export interface TrendPoint {

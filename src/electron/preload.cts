@@ -10,7 +10,7 @@ electron.contextBridge.exposeInMainWorld("electron", {
   getDbConfig: () => ipcInvoke("db:getConfig"),
   saveDbConfig: (input: import("./db/types.js").DbConfigInput) =>
     ipcInvoke("db:saveConfig", input),
-  testDbConnection: (input: import("./db/types.js").DbConfigInput) =>
+  testDbConnection: (input: import("./db/types.js").CloudConnectionInput) =>
     ipcInvoke("db:testConnection", input),
   getDbStatus: () => ipcInvoke("db:getStatus"),
   getBusinessConfig: () => ipcInvoke("business:get"),
@@ -23,6 +23,20 @@ electron.contextBridge.exposeInMainWorld("electron", {
   createInvoice: (input: import("./domain/types.js").SavedInvoiceInput) =>
     ipcInvoke("invoice:create", input),
   deleteInvoice: (id: string) => ipcInvoke("invoice:delete", id),
+  lookupCustomers: (input: import("./domain/types.js").CustomerLookupInput) =>
+    ipcInvoke("customer:lookup", input),
+  listCustomers: (search?: string) => ipcInvoke("customer:list", search),
+  getCustomerInvoices: (id: number) => ipcInvoke("customer:invoices", id),
+  updateCustomer: (input: import("./domain/types.js").CustomerUpdateInput) =>
+    ipcInvoke("customer:update", input),
+  deleteCustomer: (id: number) => ipcInvoke("customer:delete", id),
+  searchProducts: (query: string) => ipcInvoke("product:search", query),
+  listProducts: (search?: string) => ipcInvoke("product:list", search),
+  createProduct: (input: import("./domain/types.js").ProductInput) =>
+    ipcInvoke("product:create", input),
+  updateProduct: (input: import("./domain/types.js").ProductUpdateInput) =>
+    ipcInvoke("product:update", input),
+  deleteProduct: (id: number) => ipcInvoke("product:delete", id),
   getDashboardInsights: (input: import("./domain/types.js").InsightsRangeInput) =>
     ipcInvoke("insights:dashboard", input),
 } satisfies Window["electron"]);

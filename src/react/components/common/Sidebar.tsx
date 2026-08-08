@@ -39,16 +39,11 @@ function Sidebar({ collapsed, onToggleCollapsed, profile }: SidebarProps) {
       }`}>
       {/* Brand */}
       <div
-        className={`flex h-16 shrink-0 items-center border-b border-white/5 ${
+        className={`flex h-16 shrink-0 items-center !border-r-0 border-b border-white/5 ${
           collapsed ? "justify-center px-3" : "px-5"
         }`}>
-        <BrandMark
-          size={26}
-          discColor="#FFFFFF"
-          starColor="#3AC3CF"
-          textColor="#FFFFFF"
-          glyphOnly={collapsed}
-        />
+        {/* `onDark` puts the navy mark on a white plate so it reads here. */}
+        <BrandMark size={collapsed ? 28 : 16} glyphOnly={collapsed} onDark />
       </div>
 
       {/* Navigation */}

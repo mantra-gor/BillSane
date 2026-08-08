@@ -1,20 +1,15 @@
 import { ipcHandle } from "../util.js";
 import { getDbConfig, getDecryptedConfig, saveDbConfig } from "../db/configStore.js";
-import { getDbStatus, testConnection } from "../db/connectionManager.js";
-import type { DbConfigInput, DbOperationResult } from "../db/types.js";
-import type { DataSourceConfig } from "../db/dataSourceFactory.js";
+import { getDbStatus, testCloudConnection } from "../db/connectionManager.js";
+import type { CloudConnectionInput, DbOperationResult } from "../db/types.js";
 
 // The renderer never holds a decrypted password (see configStore.getDbConfig), so a
-// "test"/"save" submitted with a blank password field means "use whatever is already
+// "test" submitted with a blank password field means "use whatever is already
 // stored" rather than "clear it" - fall back to the stored secret before connecting.
-async function withStoredSecrets(input: DbConfigInput): Promise<DataSourceConfig> {
+async function withStoredSecret(input: CloudConnectionInput): Promise<CloudConnectionInput> {
+  if (input.password) return input;
   const stored = await getDecryptedConfig();
-  const merge = (field: "postgres" | "mysql") => {
-    const candidate = input[field];
-    if (!candidate) return undefined;
-    return { ...candidate, password: candidate.password || stored[field]?.password };
-  };
-  return { backend: input.backend, postgres: merge("postgres"), mysql: merge("mysql") };
+  return { ...input, password: stored.cloud?.password };
 }
 
 export function registerDbIpcHandlers(): void {
@@ -29,10 +24,7 @@ export function registerDbIpcHandlers(): void {
     }
   });
 
-  ipcHandle("db:testConnection", async (input) => {
-    const config = await withStoredSecrets(input);
-    return testConnection(config);
-  });
+  ipcHandle("db:testConnection", async (input) => testCloudConnection(await withStoredSecret(input)));
 
   ipcHandle("db:getStatus", () => getDbStatus());
 }

@@ -1,4 +1,7 @@
 export interface InvoiceCustomerDetails {
+  // The customer record this invoice is billed to. Set when the till resolved
+  // an existing customer; absent for a walk-in, where the phone number decides.
+  id?: number;
   name: string;
   phone: string;
   email?: string;

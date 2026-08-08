@@ -17,7 +17,7 @@ import type {
 const DAY_MS = 24 * 60 * 60 * 1000;
 const TOP_LIMIT = 5;
 
-// pg/mysql return SUM()/COUNT() as strings; better-sqlite3 as numbers. Coerce
+// pg returns SUM()/COUNT() as strings; better-sqlite3 as numbers. Coerce
 // everything to a finite number so the renderer's money formatting never breaks.
 function num(value: unknown): number {
   const n = value == null ? 0 : Number(value);

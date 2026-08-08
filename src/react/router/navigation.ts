@@ -1,6 +1,13 @@
 import type { ComponentType } from "react";
 import { BiReceipt } from "react-icons/bi";
-import { FiDatabase, FiSettings, FiSliders, FiUser } from "react-icons/fi";
+import {
+  FiDatabase,
+  FiPackage,
+  FiSettings,
+  FiSliders,
+  FiUser,
+  FiUsers,
+} from "react-icons/fi";
 import { MdTimeline } from "react-icons/md";
 import { RxDashboard } from "react-icons/rx";
 
@@ -59,6 +66,32 @@ export const NAV_GROUPS: NavGroup[] = [
         shortcut: "3",
         keywords: ["history", "invoices", "ledger", "transactions"],
       },
+      {
+        title: "Customers",
+        description: "Everyone you've billed, and what they've spent",
+        icon: FiUsers,
+        path: "/customers",
+        shortcut: "4",
+        keywords: ["clients", "people", "contacts", "phone", "email", "regulars"],
+      },
+      {
+        title: "Inventory",
+        description: "Products and services, their prices and what's in stock",
+        icon: FiPackage,
+        path: "/inventory",
+        shortcut: "5",
+        keywords: [
+          "stock",
+          "products",
+          "items",
+          "catalog",
+          "services",
+          "sku",
+          "hsn",
+          "price",
+          "rate",
+        ],
+      },
     ],
   },
   {
@@ -69,7 +102,7 @@ export const NAV_GROUPS: NavGroup[] = [
         description: "Business details, profile and data storage",
         icon: FiSettings,
         path: "/settings",
-        shortcut: "4",
+        shortcut: "6",
         keywords: ["preferences", "config", "options"],
       },
     ],
@@ -97,14 +130,14 @@ export const SETTINGS_TABS: NavItem[] = [
     description: "Where BillSane stores its data",
     icon: FiDatabase,
     path: "/settings/database",
-    keywords: ["sqlite", "postgres", "mysql", "connection", "backup"],
+    keywords: ["sqlite", "postgres", "offline", "hybrid", "cloud", "sync", "connection", "backup"],
   },
   {
     title: "Appearance",
     description: "Density and display preferences",
     icon: FiSettings,
     path: "/settings/appearance",
-    keywords: ["theme", "density", "display", "look"],
+    keywords: ["sidebar", "layout", "density", "display", "look"],
   },
 ];
 

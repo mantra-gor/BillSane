@@ -301,7 +301,8 @@ with drill-down and export.
 ### 7.4 Settings — *partially implemented*
 Tabbed area ([Settings.tsx](src/react/pages/Settings.tsx)):
 - **Account** — profile; currently only a working password **Logout** (clears `localStorage`).
-- **Appearance** — stub (theme; palette already tokenized for this).
+- **Appearance** — default sidebar state + the brand palette reference. Light-only:
+  dark mode is deliberately out of scope.
 - **Configurations** — stub (business profile, tax setup, invoice numbering, roles).
 
 ### 7.5 Authentication — *static placeholder*

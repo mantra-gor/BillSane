@@ -1,7 +1,5 @@
 import { useState } from "react";
-import { FiCheck, FiMoon, FiSun } from "react-icons/fi";
 import Card from "../../components/ui/elements/Card";
-import Badge from "../../components/ui/elements/Badge";
 import { useToast } from "../../components/ui/feedback/toastContext";
 
 const COLLAPSE_KEY = "sidebarCollapsed";
@@ -76,38 +74,6 @@ function Appearance() {
 
   return (
     <div className="space-y-5">
-      <Card title="Theme" subtitle="How BillSane looks on this machine.">
-        <div className="grid grid-cols-2 gap-3">
-          <div className="flex items-center gap-3 rounded-xl border-2 border-munsell_blue bg-munsell_blue-5 p-4">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-munsell_blue text-white">
-              <FiSun size={17} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-bold text-ink">Light</span>
-              <span className="block text-xs text-ink-muted">
-                Matches printed invoices
-              </span>
-            </span>
-            <FiCheck size={17} className="shrink-0 text-munsell_blue" />
-          </div>
-
-          <div className="flex items-center gap-3 rounded-xl border border-line bg-surface-subtle p-4 opacity-60">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-sunken text-ink-faint">
-              <FiMoon size={17} />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-sm font-bold text-ink-muted">
-                Dark
-              </span>
-              <span className="block text-xs text-ink-faint">
-                Not available yet
-              </span>
-            </span>
-            <Badge size="sm">Soon</Badge>
-          </div>
-        </div>
-      </Card>
-
       <Card title="Layout" subtitle="Defaults applied when the app starts.">
         <Toggle
           checked={collapsedByDefault}

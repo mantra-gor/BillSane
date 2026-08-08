@@ -1,7 +1,7 @@
 import { DataSource } from "typeorm";
-import { createDataSource, DataSourceConfig } from "./dataSourceFactory.js";
+import { createCloudDataSource, createLocalDataSource } from "./dataSourceFactory.js";
 import { getDecryptedConfig } from "./configStore.js";
-import type { DbOperationResult, DbStatus } from "./types.js";
+import type { CloudConnectionInput, DbOperationResult, DbStatus } from "./types.js";
 
 let activeDataSource: DataSource | null = null;
 let status: DbStatus = { state: "not-configured" };
@@ -14,13 +14,13 @@ export function getDataSource(): DataSource | null {
   return activeDataSource;
 }
 
-// Never awaited from main.ts's app.on("ready") - an unreachable Postgres/MySQL
-// host must not hang the whole app launch behind a TCP connect timeout.
+// Local SQLite backs both modes, so startup never waits on the network. When the
+// hybrid sync engine lands it attaches after this, out of the launch path.
 export async function initializeDatabase(): Promise<void> {
   status = { state: "connecting" };
   try {
-    const config = await getDecryptedConfig();
-    const dataSource = createDataSource(config);
+    const { mode } = await getDecryptedConfig();
+    const dataSource = createLocalDataSource();
     await dataSource.initialize();
     // TypeORM tracks applied migrations in its own table and no-ops when nothing
     // is pending, so this is safe to run unconditionally on every startup.
@@ -30,15 +30,17 @@ export async function initializeDatabase(): Promise<void> {
       await activeDataSource.destroy().catch(() => undefined);
     }
     activeDataSource = dataSource;
-    status = { state: "connected", backend: config.backend };
+    status = { state: "connected", mode };
   } catch (err) {
     activeDataSource = null;
     status = { state: "error", error: err instanceof Error ? err.message : String(err) };
   }
 }
 
-export async function testConnection(config: DataSourceConfig): Promise<DbOperationResult> {
-  const candidate = createDataSource(config);
+export async function testCloudConnection(
+  fields: CloudConnectionInput
+): Promise<DbOperationResult> {
+  const candidate = createCloudDataSource(fields);
   try {
     await candidate.initialize();
     await candidate.destroy();

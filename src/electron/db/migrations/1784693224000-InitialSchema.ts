@@ -1,8 +1,9 @@
 import { MigrationInterface, QueryRunner, Table, TableForeignKey } from "typeorm";
 
 // Hand-written (not `synchronize: true`) using the cross-dialect Table/TableColumn
-// builder API, deliberately - raw SQL strings are exactly where sqlite/postgres/mysql
-// syntax diverges (AUTOINCREMENT vs SERIAL vs AUTO_INCREMENT, decimal type names, etc).
+// builder API, deliberately - raw SQL strings are exactly where sqlite and postgres
+// syntax diverges (AUTOINCREMENT vs SERIAL, decimal type names, etc), and hybrid mode
+// has to run this same schema on both.
 export class InitialSchema1784693224000 implements MigrationInterface {
   name = "InitialSchema1784693224000";
 

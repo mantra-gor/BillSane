@@ -1,5 +1,13 @@
-import { Column, Entity, ManyToOne, PrimaryGeneratedColumn, Relation } from "typeorm";
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+  Relation,
+} from "typeorm";
 import { Invoice } from "./Invoice.js";
+import { Product } from "./Product.js";
 import { decimalTransformer } from "../decimalTransformer.js";
 
 // Named InvoiceLineItem (not LineItem) to avoid colliding with the ambient
@@ -13,6 +21,25 @@ export class InvoiceLineItem {
   @ManyToOne(() => Invoice, (invoice) => invoice.lineItems, { onDelete: "CASCADE" })
   invoice!: Relation<Invoice>;
 
+  // Which catalog item was sold, when one is known - this is what stock is
+  // deducted from. ON DELETE SET NULL, not RESTRICT (which is what the customer
+  // FK uses): retiring a catalog entry must not be blocked by history, and the
+  // invoice loses nothing because everything it prints is snapshotted below.
+  //
+  // The FK is also mapped as a plain column so reading an invoice back knows
+  // what it sold without joining the whole catalog on every row.
+  @Column({ type: "integer", nullable: true })
+  productId!: number | null;
+
+  @ManyToOne(() => Product, (product) => product.lineItems, {
+    nullable: true,
+    onDelete: "SET NULL",
+  })
+  @JoinColumn({ name: "productId" })
+  product!: Relation<Product> | null;
+
+  // The columns below are a snapshot taken at the moment of sale. Renaming or
+  // repricing a product must never rewrite an invoice that has been issued.
   @Column({ type: "varchar", nullable: true })
   itemName!: string | null;
 

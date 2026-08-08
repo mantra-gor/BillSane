@@ -7,6 +7,8 @@ import InvoiceCreate from "../pages/InvoiceCreate";
 import Invoice from "../../invoice-templates/Invoice";
 import Dashboard from "../pages/Dashboard";
 import Sales from "../pages/Sales";
+import Customers from "../pages/Customers";
+import Inventory from "../pages/Inventory";
 import Settings from "../pages/Settings";
 import Account from "../pages/Settings/Account";
 import Appearance from "../pages/Settings/Appearance";
@@ -57,6 +59,14 @@ const Router = () => {
             {
               path: "sales",
               element: <Sales />,
+            },
+            {
+              path: "customers",
+              element: <Customers />,
+            },
+            {
+              path: "inventory",
+              element: <Inventory />,
             },
             {
               path: "settings",

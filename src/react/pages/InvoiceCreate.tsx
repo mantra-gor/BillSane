@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import {
   FiAlertCircle,
   FiCornerDownLeft,
@@ -12,21 +12,28 @@ import {
 } from "react-icons/fi";
 import { TbCurrencyRupee } from "react-icons/tb";
 import AppLayout from "../components/core/layout/AppLayout";
+import CustomerIdentity from "../components/common/CustomerIdentity";
 import Card from "../components/ui/elements/Card";
 import Button from "../components/ui/elements/Button";
 import Field from "../components/ui/elements/Field";
 import Input from "../components/ui/elements/Input";
 import LabeledInput from "../components/ui/elements/LabeledInput";
 import EmptyState from "../components/ui/elements/EmptyState";
+import ProductSelect from "../components/ui/elements/ProductSelect";
 import { useToast } from "../components/ui/feedback/toastContext";
 import { saveInvoice } from "../utils/invoiceStore";
 import { formatINR } from "../utils/format";
 import { MOD_KEY, hasModifier } from "../hooks/usePlatform";
+import { useCustomerLookup } from "../hooks/useCustomerLookup";
+import type { CustomerMatch } from "../utils/customerStore";
+import type { ProductOption } from "../utils/productStore";
 import {
   blockInvalidNumberKey,
   blockNonDigitKey,
   emailValidation,
   phoneValidation,
+  EMAIL_REGEX,
+  PHONE_REGEX,
 } from "../utils/validators";
 import upiIcon from "../assets/resources/upi-icon.png";
 import cardIcon from "../assets/resources/card-icon.png";
@@ -45,7 +52,11 @@ interface CustomerFormValues {
  */
 interface DraftLine {
   id: number;
+  // The catalog item this row sells. Null means the name was typed rather than
+  // picked, which is fine — saving the invoice adds it to inventory.
+  productId: number | null;
   itemName: string;
+  unit: string;
   rate: string;
   qty: string;
   taxType: string;
@@ -69,7 +80,9 @@ let nextLineId = 1;
 function newLine(): DraftLine {
   return {
     id: nextLineId++,
+    productId: null,
     itemName: "",
+    unit: "pcs",
     rate: "",
     qty: "1",
     taxType: "GST",
@@ -116,10 +129,69 @@ function InvoiceCreate() {
     register,
     handleSubmit,
     reset: resetCustomer,
+    control,
+    getValues,
+    setValue,
+    setFocus,
     formState: { errors },
   } = useForm<CustomerFormValues>({
     defaultValues: { customerName: "", customerPhone: "", customerEmail: "" },
   });
+
+  // The customer record this invoice will be billed to. Null means "whoever the
+  // phone number turns out to belong to", which is the walk-in path.
+  const [linked, setLinked] = useState<CustomerMatch | null>(null);
+  // useWatch, not watch() — watch returns a fresh function each render, which
+  // the React Compiler can't memoize safely.
+  const typedPhone = useWatch({ control, name: "customerPhone" });
+  const typedEmail = useWatch({ control, name: "customerEmail" });
+  const lookup = useCustomerLookup(typedPhone, typedEmail);
+
+  /**
+   * Accept a proposed match. Only blank or still-invalid fields are filled: if
+   * the operator has already typed a new number for someone found by their old
+   * email, that new number is what they meant, and it overwrites the one on
+   * file when the invoice saves.
+   */
+  const linkCustomer = useCallback(
+    (match: CustomerMatch) => {
+      setLinked(match);
+      const fill = (
+        field: keyof CustomerFormValues,
+        value: string,
+        isComplete: (current: string) => boolean
+      ) => {
+        if (!value) return;
+        if (!isComplete(getValues(field).trim())) {
+          setValue(field, value, { shouldValidate: true });
+        }
+      };
+      fill("customerName", match.name, (current) => current !== "");
+      fill("customerPhone", match.phone, (current) => PHONE_REGEX.test(current));
+      fill("customerEmail", match.email ?? "", (current) =>
+        EMAIL_REGEX.test(current)
+      );
+    },
+    [getValues, setValue]
+  );
+
+  const unlinkCustomer = useCallback(() => {
+    setLinked(null);
+    resetCustomer({ customerName: "", customerPhone: "", customerEmail: "" });
+    setFocus("customerPhone");
+  }, [resetCustomer, setFocus]);
+
+  // With exactly one candidate, Enter accepts it — the counter shouldn't have to
+  // reach for the mouse. Enter is swallowed either way so a half-filled customer
+  // can never submit the invoice by accident.
+  const soleMatch =
+    !linked && lookup.matches.length === 1 ? lookup.matches[0] : null;
+
+  const onCustomerKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key !== "Enter" || hasModifier(e)) return;
+    e.preventDefault();
+    if (soleMatch) linkCustomer(soleMatch);
+  };
 
   const addLine = useCallback(() => {
     const line = newLine();
@@ -135,17 +207,35 @@ function InvoiceCreate() {
     });
   };
 
-  const updateLine = (id: number, field: keyof DraftLine, value: string) => {
+  const patchLine = (id: number, patch: Partial<DraftLine>) => {
     setLines((prev) =>
-      prev.map((line) => (line.id === id ? { ...line, [field]: value } : line))
+      prev.map((line) => (line.id === id ? { ...line, ...patch } : line))
     );
   };
 
-  // Focus the item-name box of a freshly added row.
+  /**
+   * A catalog item was chosen, so its price and tax become the row's — that is
+   * the point of picking one, and anything already typed was a guess at the
+   * same numbers. (The customer panel fills only blanks, because there the
+   * typed value is the *newer* fact; here the catalog is.)
+   */
+  const applyProduct = (id: number, product: ProductOption) => {
+    patchLine(id, {
+      productId: product.id,
+      itemName: product.name,
+      unit: product.unit,
+      rate: product.rate !== null ? String(product.rate) : "",
+      taxType: product.taxType ?? "",
+      taxPer: product.taxPer !== null ? String(product.taxPer) : "",
+    });
+  };
+
+  // Focus the item-name box of a freshly added row. The cell is a wrapper now,
+  // so the query reaches through to the search input inside it.
   useEffect(() => {
     if (focusLineId.current === null) return;
     const input = gridRef.current?.querySelector<HTMLInputElement>(
-      `[data-line="${focusLineId.current}"][data-field="itemName"]`
+      `[data-line="${focusLineId.current}"][data-field="itemName"] input`
     );
     input?.focus();
     focusLineId.current = null;
@@ -170,6 +260,7 @@ function InvoiceCreate() {
 
   const resetAll = () => {
     resetCustomer();
+    setLinked(null);
     setLines([newLine()]);
     setDiscount("");
     setPayment("cash");
@@ -199,6 +290,7 @@ function InvoiceCreate() {
           })
           .replace(",", ""),
         customerDetails: {
+          id: linked?.id,
           name: data.customerName,
           phone: data.customerPhone,
           email: data.customerEmail,
@@ -207,6 +299,7 @@ function InvoiceCreate() {
           const { tax, total } = lineTotals(line);
           return {
             id: line.id,
+            productId: line.productId ?? undefined,
             itemName: line.itemName.trim(),
             rate: num(line.rate),
             qty: num(line.qty),
@@ -253,12 +346,16 @@ function InvoiceCreate() {
   /** Enter anywhere in the last row starts the next one. */
   const onRowKeyDown = (e: React.KeyboardEvent, index: number) => {
     if (e.key !== "Enter" || hasModifier(e)) return;
+    // …unless the item search has a menu open, where Enter means "pick the
+    // highlighted item". react-select doesn't stop the event, so the row would
+    // otherwise both choose a product and skip to a new line.
+    if ((e.target as HTMLElement).getAttribute("aria-expanded") === "true") return;
     e.preventDefault();
     if (index === lines.length - 1) addLine();
     else {
       gridRef.current
         ?.querySelector<HTMLInputElement>(
-          `[data-line="${lines[index + 1].id}"][data-field="itemName"]`
+          `[data-line="${lines[index + 1].id}"][data-field="itemName"] input`
         )
         ?.focus();
     }
@@ -289,33 +386,53 @@ function InvoiceCreate() {
               title="Customer"
               subtitle="Printed on the invoice"
               action={<FiUser size={15} className="text-ink-faint" />}>
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <CustomerIdentity
+                matches={lookup.matches}
+                searching={lookup.searching}
+                searched={lookup.searched}
+                linked={linked}
+                phone={typedPhone}
+                email={typedEmail}
+                onLink={linkCustomer}
+                onUnlink={unlinkCustomer}
+              />
+
+              {/* Phone leads: it is the fastest thing to ask for and the key the
+                  lookup is fastest on, so a regular is recognised before the
+                  operator has typed anything else. */}
+              <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+                <LabeledInput
+                  title="Phone"
+                  required
+                  autoFocus
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={10}
+                  placeholder="10-digit number"
+                  hint={soleMatch ? "Press ⏎ to use the match above" : undefined}
+                  onKeyDown={(e) => {
+                    blockNonDigitKey(e);
+                    onCustomerKeyDown(e);
+                  }}
+                  error={errors.customerPhone?.message}
+                  {...register("customerPhone", phoneValidation)}
+                />
                 <LabeledInput
                   title="Full name"
                   required
-                  autoFocus
                   placeholder="e.g. Rohan Mehta"
+                  onKeyDown={onCustomerKeyDown}
                   error={errors.customerName?.message}
                   {...register("customerName", {
                     required: "Customer name is required",
                   })}
                 />
                 <LabeledInput
-                  title="Phone"
-                  required
-                  type="tel"
-                  inputMode="numeric"
-                  maxLength={10}
-                  placeholder="10-digit number"
-                  onKeyDown={blockNonDigitKey}
-                  error={errors.customerPhone?.message}
-                  {...register("customerPhone", phoneValidation)}
-                />
-                <LabeledInput
                   title="Email"
                   required
                   type="email"
                   placeholder="name@example.com"
+                  onKeyDown={onCustomerKeyDown}
                   error={errors.customerEmail?.message}
                   {...register("customerEmail", emailValidation)}
                 />
@@ -368,16 +485,34 @@ function InvoiceCreate() {
                             flagged ? "bg-danger-soft" : "hover:bg-surface-subtle"
                           }`}
                           onKeyDown={(e) => onRowKeyDown(e, index)}>
-                          <input
+                          <div
                             data-line={line.id}
                             data-field="itemName"
-                            className={`${cellClass} font-medium`}
-                            placeholder="Product or service name"
-                            value={line.itemName}
-                            onChange={(e) =>
-                              updateLine(line.id, "itemName", e.target.value)
-                            }
-                          />
+                            className="relative min-w-0">
+                            <ProductSelect
+                              value={{
+                                productId: line.productId,
+                                name: line.itemName,
+                              }}
+                              onType={(name) =>
+                                // Typing after picking means this is no longer
+                                // that catalog item — drop the link so the row
+                                // is judged on its name again.
+                                patchLine(line.id, { productId: null, itemName: name })
+                              }
+                              onPick={(product) => applyProduct(line.id, product)}
+                            />
+                            {/* Overlaid rather than stacked below: a hint that
+                                appears on the first keystroke must not resize
+                                the row under the operator's hands. */}
+                            {line.productId === null && line.itemName.trim() !== "" && (
+                              <span
+                                title="Not in your inventory yet — saving this invoice adds it"
+                                className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-munsell_blue-5 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-munsell_blue-700">
+                                New
+                              </span>
+                            )}
+                          </div>
                           <input
                             type="number"
                             min={0}
@@ -390,13 +525,15 @@ function InvoiceCreate() {
                             }
                             onKeyDown={blockInvalidNumberKey}
                             onChange={(e) =>
-                              updateLine(line.id, "rate", e.target.value)
+                              patchLine(line.id, { rate: e.target.value })
                             }
                           />
                           <input
                             type="number"
                             min={0}
                             step="1"
+                            aria-label={`Quantity in ${line.unit}`}
+                            title={`Quantity in ${line.unit}`}
                             className={`${cellClass} tnum`}
                             placeholder="0"
                             value={line.qty}
@@ -405,7 +542,7 @@ function InvoiceCreate() {
                             }
                             onKeyDown={blockInvalidNumberKey}
                             onChange={(e) =>
-                              updateLine(line.id, "qty", e.target.value)
+                              patchLine(line.id, { qty: e.target.value })
                             }
                           />
                           <input
@@ -413,7 +550,7 @@ function InvoiceCreate() {
                             placeholder="GST"
                             value={line.taxType}
                             onChange={(e) =>
-                              updateLine(line.id, "taxType", e.target.value)
+                              patchLine(line.id, { taxType: e.target.value })
                             }
                           />
                           <input
@@ -429,7 +566,7 @@ function InvoiceCreate() {
                             }
                             onKeyDown={blockInvalidNumberKey}
                             onChange={(e) =>
-                              updateLine(line.id, "taxPer", e.target.value)
+                              patchLine(line.id, { taxPer: e.target.value })
                             }
                           />
                           <div className="pr-1 text-right">

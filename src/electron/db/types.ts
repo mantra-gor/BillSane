@@ -1,6 +1,10 @@
-export type DbBackend = "local" | "postgres" | "mysql";
+// BillSane runs in one of two data modes. Local SQLite is the source of truth in
+// BOTH of them - "hybrid" adds a PostgreSQL cloud database that the local file will
+// sync with, so the app keeps working offline. The sync engine is not built yet;
+// today "hybrid" only stores (and can test) the cloud credentials.
+export type DbMode = "offline" | "hybrid";
 
-export interface DbConnectionFields {
+export interface CloudConnectionFields {
   host: string;
   port: number;
   username: string;
@@ -8,22 +12,22 @@ export interface DbConnectionFields {
   useSsl: boolean;
 }
 
+export type CloudConnectionInput = CloudConnectionFields & { password?: string };
+
 export interface DbConfigInput {
-  backend: DbBackend;
-  postgres?: DbConnectionFields & { password?: string };
-  mysql?: DbConnectionFields & { password?: string };
+  mode: DbMode;
+  cloud?: CloudConnectionInput;
 }
 
 export interface DbConfigRedacted {
-  backend: DbBackend;
-  postgres?: DbConnectionFields & { hasStoredPassword: boolean };
-  mysql?: DbConnectionFields & { hasStoredPassword: boolean };
+  mode: DbMode;
+  cloud?: CloudConnectionFields & { hasStoredPassword: boolean };
 }
 
 export type DbOperationResult = { ok: true } | { ok: false; error: string };
 
 export interface DbStatus {
   state: "connecting" | "connected" | "error" | "not-configured";
-  backend?: DbBackend;
+  mode?: DbMode;
   error?: string;
 }
