@@ -4,12 +4,15 @@ import {
   FiDatabase,
   FiPackage,
   FiSettings,
+  FiShield,
   FiSliders,
   FiUser,
+  FiUserCheck,
   FiUsers,
 } from "react-icons/fi";
 import { MdTimeline } from "react-icons/md";
 import { RxDashboard } from "react-icons/rx";
+import type { Permission } from "../utils/authStore";
 
 export interface NavItem {
   title: string;
@@ -21,6 +24,16 @@ export interface NavItem {
   shortcut?: string;
   /** Extra terms the command palette should match on. */
   keywords?: string[];
+  /**
+   * What a user needs to see this screen — any one of them is enough. Omitted
+   * means every signed-in user gets it.
+   *
+   * Declared here rather than in the route tree so the sidebar, the topbar, the
+   * command palette and the router all gate on the same fact. Registering the
+   * route is still separate (Router.tsx), and it passes this same list to
+   * `ProtectedRoute` — so a screen that is hidden is also unreachable by URL.
+   */
+  permission?: Permission[];
 }
 
 export interface NavGroup {
@@ -43,6 +56,7 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: RxDashboard,
         path: "/dashboard",
         shortcut: "1",
+        permission: ["dashboard:view"],
         keywords: ["home", "insights", "analytics", "reports", "overview"],
       },
     ],
@@ -56,6 +70,7 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: BiReceipt,
         path: "/invoice-create",
         shortcut: "2",
+        permission: ["invoice:create"],
         keywords: ["bill", "create", "pos", "sell", "checkout", "counter"],
       },
       {
@@ -64,6 +79,7 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: MdTimeline,
         path: "/sales",
         shortcut: "3",
+        permission: ["invoice:view"],
         keywords: ["history", "invoices", "ledger", "transactions"],
       },
       {
@@ -72,6 +88,7 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: FiUsers,
         path: "/customers",
         shortcut: "4",
+        permission: ["customer:view"],
         keywords: ["clients", "people", "contacts", "phone", "email", "regulars"],
       },
       {
@@ -80,6 +97,7 @@ export const NAV_GROUPS: NavGroup[] = [
         icon: FiPackage,
         path: "/inventory",
         shortcut: "5",
+        permission: ["inventory:view"],
         keywords: [
           "stock",
           "products",
@@ -123,13 +141,31 @@ export const SETTINGS_TABS: NavItem[] = [
     description: "Company details printed on every invoice",
     icon: FiSliders,
     path: "/settings/config",
+    permission: ["settings:business"],
     keywords: ["gst", "gstin", "logo", "address", "company", "configuration"],
+  },
+  {
+    title: "Users",
+    description: "Who can sign in, and as what",
+    icon: FiUserCheck,
+    path: "/settings/users",
+    permission: ["users:manage"],
+    keywords: ["staff", "team", "accounts", "people", "cashier", "password", "invite"],
+  },
+  {
+    title: "Roles",
+    description: "What each role is allowed to do",
+    icon: FiShield,
+    path: "/settings/roles",
+    permission: ["roles:manage"],
+    keywords: ["permissions", "access", "rbac", "security", "rights", "privileges"],
   },
   {
     title: "Database",
     description: "Where BillSane stores its data",
     icon: FiDatabase,
     path: "/settings/database",
+    permission: ["settings:database"],
     keywords: ["sqlite", "postgres", "offline", "hybrid", "cloud", "sync", "connection", "backup"],
   },
   {
@@ -153,4 +189,41 @@ export function titleForPath(pathname: string): string {
   )[0];
 
   return match?.title ?? "BillSane";
+}
+
+// --- Permission filtering ----------------------------------------------------
+// `can` is `useAuth().can` — passed in rather than imported so this module stays
+// free of React and can be read as the plain manifest it is.
+
+export type PermissionCheck = (...permissions: Permission[]) => boolean;
+
+export function canSee(item: NavItem, can: PermissionCheck): boolean {
+  return !item.permission || can(...item.permission);
+}
+
+/** The sidebar's groups, with anything the user can't reach removed. */
+export function visibleNavGroups(can: PermissionCheck): NavGroup[] {
+  return NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => canSee(item, can)),
+  })).filter((group) => group.items.length > 0);
+}
+
+export function visibleSettingsTabs(can: PermissionCheck): NavItem[] {
+  return SETTINGS_TABS.filter((tab) => canSee(tab, can));
+}
+
+/**
+ * Where "/" should land for this user.
+ *
+ * Not a hardcoded /dashboard: a cashier has no dashboard permission, and
+ * bouncing them to a screen that immediately refuses them is a worse welcome
+ * than opening on the counter they actually work at. Settings → Account is the
+ * last resort because every account can always reach it.
+ */
+export function landingPath(can: PermissionCheck): string {
+  const first = NAV_GROUPS.flatMap((group) => group.items).find((item) =>
+    canSee(item, can)
+  );
+  return first?.path ?? "/settings/accounts";
 }

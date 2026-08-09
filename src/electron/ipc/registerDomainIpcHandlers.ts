@@ -1,7 +1,8 @@
 import fs from "fs";
 import path from "path";
+import { BrowserWindow, app, dialog, shell } from "electron";
 import { Like, Repository } from "typeorm";
-import { ipcHandle } from "../util.js";
+import { ipcHandleAuthenticated, ipcHandleGuarded } from "./guard.js";
 import { getUserDataPath } from "../pathResolver.js";
 import { getDataSource } from "../db/connectionManager.js";
 import { Business, Customer, Invoice, InvoiceLineItem, Product } from "../db/entities/index.js";
@@ -10,9 +11,12 @@ import type {
   CustomerMatch,
   CustomerSummary,
   DashboardInsights,
+  ProductImportPreviewResult,
+  ProductImportResult,
   ProductOption,
   ProductSummary,
   RecentInvoice,
+  SaveFileResult,
   SavedInvoice,
   SavedInvoiceInput,
   InvoiceCustomerDetails,
@@ -34,6 +38,11 @@ import {
   stockDeltas,
   updateProduct,
 } from "../domain/products.js";
+import {
+  IMPORT_TEMPLATE_CSV,
+  importProducts,
+  previewProductImport,
+} from "../domain/productImport.js";
 
 function requireDataSource() {
   const dataSource = getDataSource();
@@ -159,7 +168,9 @@ function toSavedInvoice(invoice: Invoice): SavedInvoice {
 }
 
 export function registerDomainIpcHandlers(): void {
-  ipcHandle("business:get", async (): Promise<BusinessConfig> => {
+  // Readable by anyone signed in: these are the details printed at the top of
+  // every invoice, so the counter needs them without being able to edit them.
+  ipcHandleAuthenticated("business:get", async (): Promise<BusinessConfig> => {
     const repo = requireDataSource().getRepository(Business);
     const row = await getOrCreateBusinessRow(repo);
     const logo = await readLogoFile();
@@ -173,7 +184,7 @@ export function registerDomainIpcHandlers(): void {
     };
   });
 
-  ipcHandle("business:save", async (input): Promise<DbOperationResult> => {
+  ipcHandleGuarded("business:save", ["settings:business"], async (input): Promise<DbOperationResult> => {
     try {
       const repo = requireDataSource().getRepository(Business);
       const row = await getOrCreateBusinessRow(repo);
@@ -185,7 +196,7 @@ export function registerDomainIpcHandlers(): void {
     }
   });
 
-  ipcHandle("business:saveLogo", async (dataUrl): Promise<DbOperationResult> => {
+  ipcHandleGuarded("business:saveLogo", ["settings:business"], async (dataUrl): Promise<DbOperationResult> => {
     try {
       await writeLogoFile(dataUrl);
       return { ok: true };
@@ -194,14 +205,17 @@ export function registerDomainIpcHandlers(): void {
     }
   });
 
-  ipcHandle("invoice:list", async (): Promise<SavedInvoice[]> => {
+  ipcHandleGuarded("invoice:list", ["invoice:view"], async (): Promise<SavedInvoice[]> => {
     const invoices = await requireDataSource()
       .getRepository(Invoice)
       .find({ relations: { customer: true, lineItems: true }, order: { createdAt: "DESC" } });
     return invoices.map(toSavedInvoice);
   });
 
-  ipcHandle("invoice:get", async (id): Promise<SavedInvoice | undefined> => {
+  // `invoice:create` is enough to re-open one: a customer asking for a second
+  // copy a minute after paying is an ordinary counter request, and a cashier
+  // who just printed the bill gains nothing by being refused it.
+  ipcHandleGuarded("invoice:get", ["invoice:view", "invoice:create"], async (id): Promise<SavedInvoice | undefined> => {
     const invoice = await requireDataSource()
       .getRepository(Invoice)
       .findOne({ where: { id }, relations: { customer: true, lineItems: true } });
@@ -215,7 +229,7 @@ export function registerDomainIpcHandlers(): void {
   //
   // Note this does not make `generateInvoiceNo` race-free — that count-based
   // scheme is unchanged; the window is just narrower.
-  ipcHandle("invoice:create", async (input: SavedInvoiceInput): Promise<SavedInvoice> => {
+  ipcHandleGuarded("invoice:create", ["invoice:create"], async (input: SavedInvoiceInput): Promise<SavedInvoice> => {
     const dataSource = requireDataSource();
 
     const savedId = await dataSource.transaction(async (manager) => {
@@ -264,7 +278,7 @@ export function registerDomainIpcHandlers(): void {
     return toSavedInvoice(withRelations);
   });
 
-  ipcHandle("invoice:delete", async (id): Promise<DbOperationResult> => {
+  ipcHandleGuarded("invoice:delete", ["invoice:delete"], async (id): Promise<DbOperationResult> => {
     try {
       await requireDataSource().transaction(async (manager) => {
         const invoiceRepo = manager.getRepository(Invoice);
@@ -293,19 +307,19 @@ export function registerDomainIpcHandlers(): void {
     }
   });
 
-  ipcHandle("customer:lookup", (input): Promise<CustomerMatch[]> => {
+  ipcHandleGuarded("customer:lookup", ["invoice:create", "customer:view"], (input): Promise<CustomerMatch[]> => {
     return lookupCustomers(requireDataSource(), input);
   });
 
-  ipcHandle("customer:list", (search): Promise<CustomerSummary[]> => {
+  ipcHandleGuarded("customer:list", ["customer:view"], (search): Promise<CustomerSummary[]> => {
     return listCustomers(requireDataSource(), search);
   });
 
-  ipcHandle("customer:invoices", (id): Promise<RecentInvoice[]> => {
+  ipcHandleGuarded("customer:invoices", ["customer:view"], (id): Promise<RecentInvoice[]> => {
     return listCustomerInvoices(requireDataSource(), id);
   });
 
-  ipcHandle("customer:update", async (input): Promise<DbOperationResult> => {
+  ipcHandleGuarded("customer:update", ["customer:manage"], async (input): Promise<DbOperationResult> => {
     try {
       const repo = requireDataSource().getRepository(Customer);
       const row = await repo.findOne({ where: { id: input.id } });
@@ -326,7 +340,7 @@ export function registerDomainIpcHandlers(): void {
     }
   });
 
-  ipcHandle("customer:delete", async (id): Promise<DbOperationResult> => {
+  ipcHandleGuarded("customer:delete", ["customer:manage"], async (id): Promise<DbOperationResult> => {
     try {
       const dataSource = requireDataSource();
       // The invoice FK is ON DELETE RESTRICT, so the driver would reject this
@@ -347,15 +361,15 @@ export function registerDomainIpcHandlers(): void {
     }
   });
 
-  ipcHandle("product:search", (query): Promise<ProductOption[]> => {
+  ipcHandleGuarded("product:search", ["invoice:create", "inventory:view"], (query): Promise<ProductOption[]> => {
     return searchProducts(requireDataSource(), query);
   });
 
-  ipcHandle("product:list", (search): Promise<ProductSummary[]> => {
+  ipcHandleGuarded("product:list", ["inventory:view"], (search): Promise<ProductSummary[]> => {
     return listProducts(requireDataSource(), search);
   });
 
-  ipcHandle("product:create", async (input): Promise<DbOperationResult> => {
+  ipcHandleGuarded("product:create", ["inventory:manage"], async (input): Promise<DbOperationResult> => {
     try {
       await createProduct(requireDataSource(), input);
       return { ok: true };
@@ -364,7 +378,7 @@ export function registerDomainIpcHandlers(): void {
     }
   });
 
-  ipcHandle("product:update", async (input): Promise<DbOperationResult> => {
+  ipcHandleGuarded("product:update", ["inventory:manage"], async (input): Promise<DbOperationResult> => {
     try {
       await updateProduct(requireDataSource(), input);
       return { ok: true };
@@ -376,7 +390,7 @@ export function registerDomainIpcHandlers(): void {
   // No invoice-count guard, unlike customer:delete. The line item's FK is
   // ON DELETE SET NULL and everything an invoice prints is snapshotted on the
   // line, so retiring a catalog entry costs history nothing.
-  ipcHandle("product:delete", async (id): Promise<DbOperationResult> => {
+  ipcHandleGuarded("product:delete", ["inventory:manage"], async (id): Promise<DbOperationResult> => {
     try {
       await requireDataSource().getRepository(Product).delete(id);
       return { ok: true };
@@ -385,7 +399,53 @@ export function registerDomainIpcHandlers(): void {
     }
   });
 
-  ipcHandle("insights:dashboard", (range): Promise<DashboardInsights> => {
+  // Bulk import. Both halves answer with a result object rather than throwing:
+  // an ipcInvoke rejection reaches the renderer wrapped in "Error invoking
+  // remote method …", and "That file is empty." is a sentence the owner should
+  // read on its own.
+  ipcHandleGuarded("product:importPreview", ["inventory:manage"], async (csv): Promise<ProductImportPreviewResult> => {
+    try {
+      return { ok: true, preview: await previewProductImport(requireDataSource(), csv) };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
+  ipcHandleGuarded("product:import", ["inventory:manage"], async (input): Promise<ProductImportResult> => {
+    try {
+      const counts = await importProducts(requireDataSource(), input);
+      return { ok: true, ...counts };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
+  // The example file goes through a native save dialog rather than a renderer
+  // blob download: this is a desktop app, and the owner should end up with a
+  // file in Downloads that Excel opens, revealed in the file manager.
+  ipcHandleGuarded("product:importTemplate", ["inventory:manage"], async (): Promise<SaveFileResult> => {
+    try {
+      const parent = BrowserWindow.getFocusedWindow();
+      const options = {
+        title: "Save example inventory file",
+        defaultPath: path.join(app.getPath("downloads"), "billsane-inventory-example.csv"),
+        filters: [{ name: "CSV", extensions: ["csv"] }],
+      };
+      const { canceled, filePath } = parent
+        ? await dialog.showSaveDialog(parent, options)
+        : await dialog.showSaveDialog(options);
+
+      if (canceled || !filePath) return { ok: true, canceled: true, filePath: null };
+
+      await fs.promises.writeFile(filePath, IMPORT_TEMPLATE_CSV, "utf-8");
+      shell.showItemInFolder(filePath);
+      return { ok: true, canceled: false, filePath };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
+  });
+
+  ipcHandleGuarded("insights:dashboard", ["dashboard:view"], (range): Promise<DashboardInsights> => {
     return getDashboardInsights(requireDataSource(), range);
   });
 }

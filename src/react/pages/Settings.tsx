@@ -1,14 +1,22 @@
 import { NavLink, Outlet } from "react-router";
 import AppLayout from "../components/core/layout/AppLayout";
 import PageHeader from "../components/ui/elements/PageHeader";
-import { SETTINGS_TABS } from "../router/navigation";
+import { visibleSettingsTabs } from "../router/navigation";
+import { useAuth } from "../auth/authContext";
 
 /**
  * Settings frame. A vertical rail beats the old pill row: the tab labels stay
  * readable, each carries a description, and adding a tab doesn't squeeze the
  * others.
+ *
+ * The rail is filtered by permission, so a cashier sees Account and Appearance
+ * and nothing else — Settings itself stays reachable for everyone, because
+ * everyone can edit their own profile and password.
  */
 function Settings() {
+  const { can } = useAuth();
+  const tabs = visibleSettingsTabs(can);
+
   return (
     <AppLayout className="space-y-5">
       <PageHeader
@@ -19,7 +27,7 @@ function Settings() {
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
         <nav className="w-full shrink-0 lg:sticky lg:top-6 lg:w-64">
           <ul className="card space-y-1 p-2">
-            {SETTINGS_TABS.map((tab) => (
+            {tabs.map((tab) => (
               <li key={tab.path}>
                 <NavLink
                   to={tab.path}

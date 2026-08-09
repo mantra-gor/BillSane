@@ -1,0 +1,6 @@
+Item Name,Item Code,Type,Unit,HSN/SAC,Rate,Tax Type,Tax %,Stock Qty,Low Stock At
+A4 Notebook 200 Pages,NB-A4-200,Product,pcs,4820,120,GST,12,150,25
+Gel Pen Blue,PEN-GEL-BL,Product,pcs,9608,15,GST,18,500,100
+Sugar (Loose),,Product,kg,1701,48,GST,5,80,10
+Basmati Rice 5kg Bag,RICE-BAS-5,Product,box,1006,620,GST,5,40,8
+Delivery Within City,,Service,job,9968,250,GST,18,,

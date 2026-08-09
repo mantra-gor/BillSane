@@ -13,6 +13,67 @@ type StaticData = {
 type EventPayloadMapping = {
   statistics: { args: []; return: Statistics };
   getStaticData: { args: []; return: StaticData };
+  "auth:state": {
+    args: [];
+    return: import("./src/electron/domain/types.js").AuthState;
+  };
+  "auth:setup": {
+    args: [import("./src/electron/domain/types.js").SetupInput];
+    return: import("./src/electron/domain/types.js").AuthResult;
+  };
+  "auth:signIn": {
+    args: [import("./src/electron/domain/types.js").SignInInput];
+    return: import("./src/electron/domain/types.js").AuthResult;
+  };
+  "auth:signOut": { args: []; return: void };
+  "auth:changePassword": {
+    args: [import("./src/electron/domain/types.js").ChangePasswordInput];
+    return: import("./src/electron/db/types.js").DbOperationResult;
+  };
+  "auth:updateProfile": {
+    args: [import("./src/electron/domain/types.js").ProfileUpdateInput];
+    return: import("./src/electron/domain/types.js").AuthResult;
+  };
+  "user:list": {
+    args: [];
+    return: import("./src/electron/domain/types.js").UserSummary[];
+  };
+  "user:create": {
+    args: [import("./src/electron/domain/types.js").UserCreateInput];
+    return: import("./src/electron/db/types.js").DbOperationResult;
+  };
+  "user:update": {
+    args: [import("./src/electron/domain/types.js").UserUpdateInput];
+    return: import("./src/electron/db/types.js").DbOperationResult;
+  };
+  "user:delete": {
+    args: [number];
+    return: import("./src/electron/db/types.js").DbOperationResult;
+  };
+  "user:setPassword": {
+    args: [import("./src/electron/domain/types.js").UserPasswordInput];
+    return: import("./src/electron/db/types.js").DbOperationResult;
+  };
+  "role:list": {
+    args: [];
+    return: import("./src/electron/domain/types.js").RoleSummary[];
+  };
+  "role:permissions": {
+    args: [];
+    return: import("./src/electron/domain/types.js").PermissionGroupInfo[];
+  };
+  "role:create": {
+    args: [import("./src/electron/domain/types.js").RoleInput];
+    return: import("./src/electron/db/types.js").DbOperationResult;
+  };
+  "role:update": {
+    args: [import("./src/electron/domain/types.js").RoleUpdateInput];
+    return: import("./src/electron/db/types.js").DbOperationResult;
+  };
+  "role:delete": {
+    args: [number];
+    return: import("./src/electron/db/types.js").DbOperationResult;
+  };
   "db:getConfig": {
     args: [];
     return: import("./src/electron/db/types.js").DbConfigRedacted;
@@ -97,6 +158,18 @@ type EventPayloadMapping = {
     args: [number];
     return: import("./src/electron/db/types.js").DbOperationResult;
   };
+  "product:importPreview": {
+    args: [string];
+    return: import("./src/electron/domain/types.js").ProductImportPreviewResult;
+  };
+  "product:import": {
+    args: [import("./src/electron/domain/types.js").ProductImportInput];
+    return: import("./src/electron/domain/types.js").ProductImportResult;
+  };
+  "product:importTemplate": {
+    args: [];
+    return: import("./src/electron/domain/types.js").SaveFileResult;
+  };
   "insights:dashboard": {
     args: [import("./src/electron/domain/types.js").InsightsRangeInput];
     return: import("./src/electron/domain/types.js").DashboardInsights;
@@ -147,6 +220,52 @@ interface Window {
       callback: (statistics: Statistics) => void
     ) => UnsubscribeFunction;
     getStaticData: () => Promise<StaticData>;
+    getAuthState: () => Promise<
+      import("./src/electron/domain/types.js").AuthState
+    >;
+    setupOwner: (
+      input: import("./src/electron/domain/types.js").SetupInput
+    ) => Promise<import("./src/electron/domain/types.js").AuthResult>;
+    signIn: (
+      input: import("./src/electron/domain/types.js").SignInInput
+    ) => Promise<import("./src/electron/domain/types.js").AuthResult>;
+    signOut: () => Promise<void>;
+    changePassword: (
+      input: import("./src/electron/domain/types.js").ChangePasswordInput
+    ) => Promise<import("./src/electron/db/types.js").DbOperationResult>;
+    updateProfile: (
+      input: import("./src/electron/domain/types.js").ProfileUpdateInput
+    ) => Promise<import("./src/electron/domain/types.js").AuthResult>;
+    listUsers: () => Promise<
+      import("./src/electron/domain/types.js").UserSummary[]
+    >;
+    createUser: (
+      input: import("./src/electron/domain/types.js").UserCreateInput
+    ) => Promise<import("./src/electron/db/types.js").DbOperationResult>;
+    updateUser: (
+      input: import("./src/electron/domain/types.js").UserUpdateInput
+    ) => Promise<import("./src/electron/db/types.js").DbOperationResult>;
+    deleteUser: (
+      id: number
+    ) => Promise<import("./src/electron/db/types.js").DbOperationResult>;
+    setUserPassword: (
+      input: import("./src/electron/domain/types.js").UserPasswordInput
+    ) => Promise<import("./src/electron/db/types.js").DbOperationResult>;
+    listRoles: () => Promise<
+      import("./src/electron/domain/types.js").RoleSummary[]
+    >;
+    listPermissions: () => Promise<
+      import("./src/electron/domain/types.js").PermissionGroupInfo[]
+    >;
+    createRole: (
+      input: import("./src/electron/domain/types.js").RoleInput
+    ) => Promise<import("./src/electron/db/types.js").DbOperationResult>;
+    updateRole: (
+      input: import("./src/electron/domain/types.js").RoleUpdateInput
+    ) => Promise<import("./src/electron/db/types.js").DbOperationResult>;
+    deleteRole: (
+      id: number
+    ) => Promise<import("./src/electron/db/types.js").DbOperationResult>;
     getDbConfig: () => Promise<
       import("./src/electron/db/types.js").DbConfigRedacted
     >;
@@ -206,6 +325,15 @@ interface Window {
     deleteProduct: (
       id: number
     ) => Promise<import("./src/electron/db/types.js").DbOperationResult>;
+    previewProductImport: (
+      csv: string
+    ) => Promise<import("./src/electron/domain/types.js").ProductImportPreviewResult>;
+    importProducts: (
+      input: import("./src/electron/domain/types.js").ProductImportInput
+    ) => Promise<import("./src/electron/domain/types.js").ProductImportResult>;
+    saveProductImportTemplate: () => Promise<
+      import("./src/electron/domain/types.js").SaveFileResult
+    >;
     getDashboardInsights: (
       range: import("./src/electron/domain/types.js").InsightsRangeInput
     ) => Promise<import("./src/electron/domain/types.js").DashboardInsights>;

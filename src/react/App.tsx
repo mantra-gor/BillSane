@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import Router from "./router/Router";
+import AuthProvider from "./auth/AuthProvider";
 import ToastProvider from "./components/ui/feedback/ToastProvider";
 
 function App() {
@@ -22,9 +23,12 @@ function App() {
     };
   }, []);
 
+  // ToastProvider sits outside, so the auth screens can raise a toast too.
   return (
     <ToastProvider>
-      <Router />
+      <AuthProvider>
+        <Router />
+      </AuthProvider>
     </ToastProvider>
   );
 }

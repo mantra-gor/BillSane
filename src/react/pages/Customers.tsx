@@ -26,6 +26,7 @@ import EmptyState from "../components/ui/elements/EmptyState";
 import CustomDataTable from "../components/ui/elements/CustomDataTable";
 import { SkeletonRows, SkeletonStat } from "../components/ui/elements/Skeleton";
 import { useToast } from "../components/ui/feedback/toastContext";
+import { useAuth } from "../auth/authContext";
 import { formatINR } from "../utils/format";
 import {
   customerInitials,
@@ -92,6 +93,7 @@ function RowAction({
 function Customers() {
   const navigate = useNavigate();
   const toast = useToast();
+  const canManage = useAuth().can("customer:manage");
 
   const [customers, setCustomers] = useState<CustomerSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -282,6 +284,8 @@ function Customers() {
       id: "actions",
       name: "",
       width: "96px",
+      // Correcting or removing a record is a different job from looking one up.
+      omit: !canManage,
       cell: (row: CustomerSummary) => (
         <div className="flex items-center gap-0.5">
           <RowAction
@@ -452,12 +456,16 @@ function Customers() {
             </>
           ) : (
             <>
-              <Button
-                variant="secondary"
-                icon={<FiEdit2 size={14} />}
-                onClick={() => selected && startEditing(selected)}>
-                Edit details
-              </Button>
+              {/* Reading a customer's history and correcting their details are
+                  separate permissions, so the panel opens either way. */}
+              {canManage && (
+                <Button
+                  variant="secondary"
+                  icon={<FiEdit2 size={14} />}
+                  onClick={() => selected && startEditing(selected)}>
+                  Edit details
+                </Button>
+              )}
               <Button
                 icon={<FiPlus size={14} />}
                 onClick={() => navigate("/invoice-create")}>

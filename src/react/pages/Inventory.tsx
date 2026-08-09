@@ -8,6 +8,7 @@ import {
   FiPlus,
   FiSearch,
   FiTrash2,
+  FiUploadCloud,
   FiX,
 } from "react-icons/fi";
 import { TbCurrencyRupee } from "react-icons/tb";
@@ -25,7 +26,10 @@ import Modal from "../components/ui/elements/Modal";
 import EmptyState from "../components/ui/elements/EmptyState";
 import CustomDataTable from "../components/ui/elements/CustomDataTable";
 import { SkeletonRows, SkeletonStat } from "../components/ui/elements/Skeleton";
+import ImportInventoryModal from "../components/inventory/ImportInventoryModal";
 import { useToast } from "../components/ui/feedback/toastContext";
+import { useAuth } from "../auth/authContext";
+import { MOD_KEY, hasModifier } from "../hooks/usePlatform";
 import { formatINR } from "../utils/format";
 import { blockInvalidNumberKey } from "../utils/validators";
 import {
@@ -126,6 +130,8 @@ function RowAction({
 
 function Inventory() {
   const navigate = useNavigate();
+  // A cashier reads the catalog while billing; repricing it is another job.
+  const canManage = useAuth().can("inventory:manage");
   const toast = useToast();
 
   const [products, setProducts] = useState<ProductSummary[]>([]);
@@ -138,6 +144,7 @@ function Inventory() {
   const [saving, setSaving] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<ProductSummary | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const {
     register,
@@ -175,6 +182,20 @@ function Inventory() {
     const timer = setTimeout(() => void load(search.trim()), SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [search, load]);
+
+  // ⌘I / Ctrl+I opens the importer — hasModifier picks the right one, so the
+  // chord is the same gesture on macOS and Windows.
+  useEffect(() => {
+    if (!canManage) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (hasModifier(e) && e.key.toLowerCase() === "i") {
+        e.preventDefault();
+        setImporting(true);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [canManage]);
 
   const stats = useMemo(() => {
     const needsAttention = products.filter((product) => {
@@ -375,6 +396,7 @@ function Inventory() {
       id: "actions",
       name: "",
       width: "96px",
+      omit: !canManage,
       cell: (row: ProductSummary) => (
         <div className="flex items-center gap-0.5">
           <RowAction
@@ -407,9 +429,20 @@ function Inventory() {
           ) : undefined
         }
         actions={
-          <Button icon={<FiPlus size={15} />} onClick={startCreating}>
-            Add item
-          </Button>
+          canManage ? (
+            <>
+              <Button
+                variant="secondary"
+                icon={<FiUploadCloud size={15} />}
+                title={`Import from a CSV file (${MOD_KEY}I)`}
+                onClick={() => setImporting(true)}>
+                Import
+              </Button>
+              <Button icon={<FiPlus size={15} />} onClick={startCreating}>
+                Add item
+              </Button>
+            </>
+          ) : undefined
         }
       />
 
@@ -488,15 +521,29 @@ function Inventory() {
           <EmptyState
             icon={FiPackage}
             title="Nothing in inventory yet"
-            description="Items are added automatically the first time you bill them — or add one here to have its price and tax ready at the counter."
+            description={
+              canManage
+                ? "Already keep your stock in a spreadsheet? Import it in one go. Otherwise add items here, or let them appear on their own the first time you bill them."
+                : "Items appear here on their own the first time you bill them."
+            }
             action={
               <div className="flex flex-wrap items-center justify-center gap-2">
-                <Button icon={<FiPlus size={15} />} onClick={startCreating}>
-                  Add an item
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => navigate("/invoice-create")}>
+                {canManage && (
+                  <>
+                    <Button
+                      icon={<FiUploadCloud size={15} />}
+                      onClick={() => setImporting(true)}>
+                      Import from a file
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      icon={<FiPlus size={15} />}
+                      onClick={startCreating}>
+                      Add an item
+                    </Button>
+                  </>
+                )}
+                <Button variant="ghost" onClick={() => navigate("/invoice-create")}>
                   Create an invoice
                 </Button>
               </div>
@@ -508,9 +555,9 @@ function Inventory() {
           columns={columns}
           data={products}
           pagination
-          highlightOnHover
+          highlightOnHover={canManage}
           defaultSortFieldId="name"
-          onRowClicked={(row: ProductSummary) => startEditing(row)}
+          onRowClicked={canManage ? (row: ProductSummary) => startEditing(row) : undefined}
           noDataComponent={
             <EmptyState
               compact
@@ -528,6 +575,16 @@ function Inventory() {
               }
             />
           }
+        />
+      )}
+
+      {/* Bulk import ----------------------------------------------------- */}
+      {/* Mounted only while open so each run starts on a clean dialog. */}
+      {importing && (
+        <ImportInventoryModal
+          open
+          onClose={() => setImporting(false)}
+          onImported={() => void load(search.trim())}
         />
       )}
 

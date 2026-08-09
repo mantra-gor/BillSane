@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Outlet, useLocation, useNavigate } from "react-router";
+import { Outlet, useNavigate } from "react-router";
 import Sidebar from "../components/common/Sidebar";
 import Topbar from "../components/common/Topbar";
 import CommandPalette from "../components/common/CommandPalette";
-import { NAV_GROUPS } from "../router/navigation";
+import { visibleNavGroups } from "../router/navigation";
 import { hasModifier } from "../hooks/usePlatform";
-import { getUserProfile, type UserProfile } from "../utils/userProfile";
+import { useAuth } from "../auth/authContext";
 
 const COLLAPSE_KEY = "sidebarCollapsed";
 
@@ -16,7 +16,7 @@ const COLLAPSE_KEY = "sidebarCollapsed";
  */
 function Home() {
   const navigate = useNavigate();
-  const location = useLocation();
+  const { user, can, signOut } = useAuth();
   const [collapsed, setCollapsed] = useState(
     () => localStorage.getItem(COLLAPSE_KEY) === "true"
   );
@@ -29,14 +29,10 @@ function Home() {
     });
   }, []);
 
-  // The profile lives in localStorage and is edited on another route, so it is
-  // re-read on navigation to keep the sidebar card current. Derived rather than
-  // stored — nothing outside React needs to be told about it.
-  const profile: UserProfile = useMemo(
-    () => getUserProfile(),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [location.pathname]
-  );
+  // The nav is filtered by what this user may reach, so the shortcuts below
+  // walk the same list the sidebar draws — ⌘3 can't jump a cashier to a screen
+  // that isn't in their sidebar.
+  const groups = useMemo(() => visibleNavGroups(can), [can]);
 
   // Global shortcuts. Anything typed into a field is left alone unless it
   // carries the platform modifier, so ⌘N still works from inside a form.
@@ -54,7 +50,7 @@ function Home() {
         toggleCollapsed();
         return;
       }
-      if (mod && e.key.toLowerCase() === "n") {
+      if (mod && e.key.toLowerCase() === "n" && can("invoice:create")) {
         e.preventDefault();
         navigate("/invoice-create");
         return;
@@ -62,9 +58,9 @@ function Home() {
 
       // ⌘1–⌘4 jump between the primary screens, in sidebar order.
       if (mod && /^[1-9]$/.test(e.key)) {
-        const target = NAV_GROUPS.flatMap((group) => group.items).find(
-          (item) => item.shortcut === e.key
-        );
+        const target = groups
+          .flatMap((group) => group.items)
+          .find((item) => item.shortcut === e.key);
         if (target) {
           e.preventDefault();
           navigate(target.path);
@@ -74,7 +70,7 @@ function Home() {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [navigate, toggleCollapsed]);
+  }, [navigate, toggleCollapsed, groups, can]);
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-canvas">
@@ -82,7 +78,9 @@ function Home() {
         <Sidebar
           collapsed={collapsed}
           onToggleCollapsed={toggleCollapsed}
-          profile={profile}
+          groups={groups}
+          user={user}
+          onSignOut={signOut}
         />
       </div>
 

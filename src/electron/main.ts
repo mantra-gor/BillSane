@@ -4,10 +4,12 @@ import path from "path";
 import { isDev } from "./util.js";
 import { getPreloadPath, getUIPath } from "./pathResolver.js";
 import { initializeDatabase } from "./db/connectionManager.js";
+import { registerAuthIpcHandlers } from "./ipc/registerAuthIpcHandlers.js";
 import { registerDbIpcHandlers } from "./ipc/registerDbIpcHandlers.js";
 import { registerDomainIpcHandlers } from "./ipc/registerDomainIpcHandlers.js";
 
 app.on("ready", () => {
+  registerAuthIpcHandlers();
   registerDbIpcHandlers();
   registerDomainIpcHandlers();
   // Not awaited - an unreachable Postgres/MySQL host must not hang app launch.

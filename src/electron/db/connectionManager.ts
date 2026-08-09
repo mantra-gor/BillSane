@@ -5,6 +5,7 @@ import type { CloudConnectionInput, DbOperationResult, DbStatus } from "./types.
 
 let activeDataSource: DataSource | null = null;
 let status: DbStatus = { state: "not-configured" };
+let readyPromise: Promise<void> = Promise.resolve();
 
 export function getDbStatus(): DbStatus {
   return status;
@@ -14,9 +15,27 @@ export function getDataSource(): DataSource | null {
   return activeDataSource;
 }
 
+/**
+ * Resolves once the in-flight `initializeDatabase()` has settled.
+ *
+ * Launch deliberately doesn't await the database (see main.ts), which leaves a
+ * window where the renderer is already asking "am I signed in?" and the file
+ * isn't open yet. Auth handlers await this instead of failing that race with
+ * "Database is not connected yet" — it settles either way, so a genuinely
+ * broken database still surfaces as its own error a line later.
+ */
+export function whenDatabaseReady(): Promise<void> {
+  return readyPromise;
+}
+
 // Local SQLite backs both modes, so startup never waits on the network. When the
 // hybrid sync engine lands it attaches after this, out of the launch path.
-export async function initializeDatabase(): Promise<void> {
+export function initializeDatabase(): Promise<void> {
+  readyPromise = connect();
+  return readyPromise;
+}
+
+async function connect(): Promise<void> {
   status = { state: "connecting" };
   try {
     const { mode } = await getDecryptedConfig();

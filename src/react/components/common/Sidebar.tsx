@@ -1,4 +1,4 @@
-import { NavLink, useNavigate } from "react-router";
+import { NavLink } from "react-router";
 import {
   FiChevronsLeft,
   FiChevronsRight,
@@ -6,31 +6,28 @@ import {
   FiUser,
 } from "react-icons/fi";
 import BrandMark from "./BrandMark";
-import { NAV_GROUPS } from "../../router/navigation";
+import type { NavGroup } from "../../router/navigation";
 import { MOD_KEY } from "../../hooks/usePlatform";
-import type { UserProfile } from "../../utils/userProfile";
+import { initialsFor, type AuthUser } from "../../utils/authStore";
 
 interface SidebarProps {
   collapsed: boolean;
   onToggleCollapsed: () => void;
-  profile: UserProfile;
+  /** Already filtered to what this user may reach — see visibleNavGroups. */
+  groups: NavGroup[];
+  user: AuthUser | null;
+  onSignOut: () => void;
 }
 
-function Sidebar({ collapsed, onToggleCollapsed, profile }: SidebarProps) {
-  const navigate = useNavigate();
-
-  const logout = () => {
-    localStorage.removeItem("isUserLoggedIn");
-    navigate("/sign-in");
-  };
-
-  const displayName = profile.fullName.trim() || "BillSane User";
-  const initials =
-    displayName
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase() ?? "")
-      .join("") || "B";
+function Sidebar({
+  collapsed,
+  onToggleCollapsed,
+  groups,
+  user,
+  onSignOut,
+}: SidebarProps) {
+  const displayName = user?.name.trim() || "BillSane User";
+  const initials = user ? initialsFor(displayName) : "?";
 
   return (
     <aside
@@ -48,7 +45,7 @@ function Sidebar({ collapsed, onToggleCollapsed, profile }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="scroll-area flex-1 px-3 py-4">
-        {NAV_GROUPS.map((group) => (
+        {groups.map((group) => (
           <div key={group.label} className="mb-5 last:mb-0">
             {!collapsed && (
               <p className="mb-2 px-3 text-[10px] font-bold uppercase tracking-[0.12em] text-white/30">
@@ -117,14 +114,12 @@ function Sidebar({ collapsed, onToggleCollapsed, profile }: SidebarProps) {
           className={`flex items-center rounded-xl bg-white/[0.04] ${
             collapsed ? "justify-center p-2" : "gap-3 p-2.5"
           }`}>
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-munsell_blue text-xs font-bold text-white ring-2 ring-white/10">
-            {profile.avatar ? (
-              <img
-                src={profile.avatar}
-                alt=""
-                className="h-full w-full object-cover"
-              />
-            ) : initials !== "B" ? (
+          <div
+            title={user ? `${displayName} · ${user.roleName}` : undefined}
+            className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-munsell_blue text-xs font-bold text-white ring-2 ring-white/10">
+            {user?.avatar ? (
+              <img src={user.avatar} alt="" className="h-full w-full object-cover" />
+            ) : user ? (
               initials
             ) : (
               <FiUser size={16} />
@@ -136,15 +131,18 @@ function Sidebar({ collapsed, onToggleCollapsed, profile }: SidebarProps) {
                 <p className="truncate text-[13px] font-semibold text-white">
                   {displayName}
                 </p>
+                {/* The role, not the email: on a shared machine "which account
+                    am I in, and what can it do" is the question worth answering
+                    at a glance. */}
                 <p className="truncate text-[11px] text-white/45">
-                  {profile.email || "No email set"}
+                  {user?.roleName ?? "No role"}
                 </p>
               </div>
               <button
                 type="button"
-                onClick={logout}
-                title="Log out"
-                aria-label="Log out"
+                onClick={onSignOut}
+                title="Sign out"
+                aria-label="Sign out"
                 className="shrink-0 cursor-pointer rounded-lg p-2 text-white/45 transition-colors hover:bg-white/10 hover:text-white">
                 <FiLogOut size={15} />
               </button>

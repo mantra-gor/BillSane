@@ -71,6 +71,65 @@ export async function deleteProduct(id: number): Promise<void> {
   if (!result.ok) throw new Error(result.error);
 }
 
+// --- Bulk import -------------------------------------------------------------
+
+export type ProductImportPreview = Extract<
+  Awaited<ReturnType<Window["electron"]["previewProductImport"]>>,
+  { ok: true }
+>["preview"];
+export type ProductImportRow = ProductImportPreview["rows"][number];
+export type ProductImportAction = ProductImportRow["action"];
+export type ProductImportSummary = Extract<
+  Awaited<ReturnType<Window["electron"]["importProducts"]>>,
+  { ok: true }
+>;
+
+/**
+ * A spreadsheet of items is measured in kilobytes. A cap this far above what
+ * the feature is for exists only to give a picked-the-wrong-file mistake a
+ * sentence instead of a frozen window.
+ */
+export const MAX_IMPORT_BYTES = 4 * 1024 * 1024;
+
+/** True for anything we'll try to parse — extension or MIME, since Windows often omits the latter. */
+export function isCsvFile(file: File): boolean {
+  return /\.csv$/i.test(file.name) || file.type === "text/csv";
+}
+
+export async function readImportFile(file: File): Promise<string> {
+  if (!isCsvFile(file)) {
+    throw new Error(
+      `${file.name} isn't a CSV. In Excel or Google Sheets choose File → Save as / Download → CSV, then pick that file.`
+    );
+  }
+  if (file.size > MAX_IMPORT_BYTES) {
+    throw new Error("That file is larger than 4 MB. Split it and import in parts.");
+  }
+  return file.text();
+}
+
+export async function previewProductImport(csv: string): Promise<ProductImportPreview> {
+  const result = await window.electron.previewProductImport(csv);
+  if (!result.ok) throw new Error(result.error);
+  return result.preview;
+}
+
+export async function importProducts(
+  csv: string,
+  updateExisting: boolean
+): Promise<ProductImportSummary> {
+  const result = await window.electron.importProducts({ csv, updateExisting });
+  if (!result.ok) throw new Error(result.error);
+  return result;
+}
+
+/** Returns where the example landed, or null if the save dialog was dismissed. */
+export async function saveImportTemplate(): Promise<string | null> {
+  const result = await window.electron.saveProductImportTemplate();
+  if (!result.ok) throw new Error(result.error);
+  return result.filePath;
+}
+
 export const UNIT_OPTIONS = [
   "pcs",
   "box",

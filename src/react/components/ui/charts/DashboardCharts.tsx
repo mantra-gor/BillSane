@@ -13,6 +13,7 @@ import {
   YAxis,
 } from "recharts";
 import type {
+  CustomerMix,
   PaymentSlice,
   TopItem,
   CustomerShare,
@@ -20,14 +21,20 @@ import type {
 } from "../../../utils/insights";
 import { compactINR, formatINR } from "../../../utils/format";
 
-// Brand accent (munsell_blue) for single-series marks. The payment mix is the
-// only categorical chart, so it draws from the validated categorical trio
-// (blue/orange/aqua) keyed by payment entity — never by rank.
+// Brand accent (munsell_blue) for single-series marks — a lone series carries
+// no identity, so the brand hue is free to be slightly low-chroma there.
+//
+// Categorical charts draw from ONE fixed hue order, blue → orange → green,
+// assigned per chart and never cycled or reassigned by rank. Validated against
+// the white card surface: worst adjacent pair ΔE 33.6 normal / 24.7 protan /
+// 32.7 tritan, all above the floor. (The brand aqua is deliberately not in the
+// order: at chroma 0.09 it reads as grey next to a saturated neighbour.)
 const ACCENT = "#298E9E";
+const CATEGORICAL = ["#2a78d6", "#eb6834", "#1baf7a"] as const;
 const PAYMENT_COLORS: Record<string, string> = {
-  cash: "#2a78d6",
-  card: "#eb6834",
-  upi: "#1baf7a",
+  cash: CATEGORICAL[0],
+  card: CATEGORICAL[1],
+  upi: CATEGORICAL[2],
 };
 const OTHER_COLOR = "#93A5B4";
 const GRID = "#EEF3F8";
@@ -173,6 +180,86 @@ export function PaymentMixDonut({ data }: { data: PaymentSlice[] }) {
             </li>
           );
         })}
+      </ul>
+    </div>
+  );
+}
+
+// --- First-time vs returning (100% stacked bar + labelled legend) -----------
+
+/**
+ * Where the period's money came from: opening purchases or repeat ones.
+ *
+ * A part-to-whole with exactly two sides doesn't need a plot — one bar reads
+ * the split instantly and leaves room for the actual numbers underneath, which
+ * is what an owner acts on. The 2px surface gap between segments is the mark
+ * spec for stacked fills; the legend carries identity so nothing is colour-only.
+ */
+export function CustomerMixSplit({ data }: { data: CustomerMix }) {
+  const total = data.firstTime.revenue + data.returning.revenue;
+  const invoices = data.firstTime.invoices + data.returning.invoices;
+  if (invoices === 0) return <EmptyChart message="No sales in this period" />;
+
+  const sides = [
+    {
+      key: "returning",
+      label: "Returning",
+      hint: "repeat purchases",
+      color: CATEGORICAL[0],
+      ...data.returning,
+    },
+    {
+      key: "firstTime",
+      label: "First-time",
+      hint: "opening purchases",
+      color: CATEGORICAL[1],
+      ...data.firstTime,
+    },
+  ];
+
+  // Share is taken on revenue when there is any, on invoice counts otherwise —
+  // a period of fully-discounted zero-value bills should still draw a bar.
+  const share = (side: (typeof sides)[number]) =>
+    total > 0 ? side.revenue / total : side.invoices / invoices;
+
+  return (
+    <div className="flex h-full flex-col justify-center gap-4">
+      <div className="flex h-3 w-full gap-0.5 overflow-hidden rounded-full">
+        {sides
+          .filter((side) => share(side) > 0)
+          .map((side) => (
+            <div
+              key={side.key}
+              className="h-full first:rounded-l-full last:rounded-r-full"
+              style={{
+                width: `${share(side) * 100}%`,
+                backgroundColor: side.color,
+              }}
+            />
+          ))}
+      </div>
+
+      <ul className="space-y-2.5">
+        {sides.map((side) => (
+          <li key={side.key} className="flex items-center gap-2 text-sm">
+            <span
+              className="h-3 w-3 shrink-0 rounded-sm"
+              style={{ backgroundColor: side.color }}
+            />
+            <span className="min-w-0">
+              <span className="font-medium text-ink-soft">{side.label}</span>
+              <span className="ml-1.5 text-xs text-ink-faint tnum">
+                {side.invoices} {side.hint}
+              </span>
+            </span>
+            <span className="ml-auto font-semibold text-ink tnum">
+              {formatINR(side.revenue)}
+            </span>
+            <span className="w-10 text-right text-xs text-ink-faint tnum">
+              {Math.round(share(side) * 100)}%
+            </span>
+          </li>
+        ))}
       </ul>
     </div>
   );

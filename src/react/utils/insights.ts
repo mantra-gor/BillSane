@@ -17,6 +17,10 @@ export type TopItem = DashboardInsights["topItems"][number];
 export type CustomerShare = DashboardInsights["topCustomers"][number];
 export type RecentInvoice = DashboardInsights["recentInvoices"][number];
 export type InsightAlert = DashboardInsights["alerts"][number];
+export type CustomerMix = DashboardInsights["customerMix"];
+export type LapsedCustomer = DashboardInsights["lapsedCustomers"][number];
+export type InventorySnapshot = DashboardInsights["inventory"];
+export type ReorderItem = DashboardInsights["reorderList"][number];
 
 export function getDashboardInsights(
   range: InsightsRangeInput

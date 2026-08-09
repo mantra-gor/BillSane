@@ -1,8 +1,12 @@
+import type { ComponentType } from "react";
 import { FiCheck } from "react-icons/fi";
 import BrandMark from "../../common/BrandMark";
+import ForcePassword from "../../../pages/ForcePassword";
 import SignIn from "../../../pages/SignIn";
-import SignUp from "../../../pages/SignUp";
+import Setup from "../../../pages/Setup";
 import accounting from "../../../assets/resources/accounting.webm";
+
+export type AuthFormType = "signin" | "setup" | "password";
 
 const HIGHLIGHTS = [
   "GST-ready invoices in seconds",
@@ -10,12 +14,24 @@ const HIGHLIGHTS = [
   "Your data stays on your machine",
 ];
 
+const FORMS: Record<AuthFormType, ComponentType> = {
+  signin: SignIn,
+  setup: Setup,
+  password: ForcePassword,
+};
+
 /**
  * Split auth screen: form on the left over a light canvas, brand panel on the
  * right. The video sits behind a navy scrim so the overlaid copy keeps its
  * contrast regardless of which frame is showing.
+ *
+ * The forced password change borrows this frame rather than the app shell: it
+ * is a gate, and drawing a sidebar the user can't use behind it would only
+ * invite them to try.
  */
-function AuthLayout({ formType }: { formType: string }) {
+function AuthLayout({ formType }: { formType: AuthFormType }) {
+  const Form = FORMS[formType];
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-canvas">
       {/* Form column */}
@@ -36,7 +52,7 @@ function AuthLayout({ formType }: { formType: string }) {
 
         <div className="scroll-area relative z-10 flex flex-1 items-center justify-center px-10 py-6">
           <div className="w-full max-w-[400px]">
-            {formType === "signin" ? <SignIn /> : <SignUp />}
+            <Form />
           </div>
         </div>
 

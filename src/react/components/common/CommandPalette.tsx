@@ -3,10 +3,11 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
 import { FiCornerDownLeft, FiFileText, FiSearch } from "react-icons/fi";
 import {
-  NAV_GROUPS,
-  SETTINGS_TABS,
+  visibleNavGroups,
+  visibleSettingsTabs,
   type NavItem,
 } from "../../router/navigation";
+import { useAuth } from "../../auth/authContext";
 import { getInvoices, type SavedInvoice } from "../../utils/invoiceStore";
 import { formatINR } from "../../utils/format";
 import { MOD_KEY } from "../../hooks/usePlatform";
@@ -38,14 +39,20 @@ const MAX_INVOICE_RESULTS = 6;
  */
 function CommandPalette({ onClose }: CommandPaletteProps) {
   const navigate = useNavigate();
+  const { can } = useAuth();
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   const [invoices, setInvoices] = useState<SavedInvoice[]>([]);
   const [loaded, setLoaded] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
 
+  // Invoices are only pulled in for someone allowed to see them — otherwise the
+  // fetch would be refused by the main process anyway, and the palette is left
+  // as a navigator.
+  const canSearchInvoices = can("invoice:view");
+
   useEffect(() => {
-    if (loaded) return;
+    if (loaded || !canSearchInvoices) return;
     let cancelled = false;
     getInvoices()
       .then((data) => {
@@ -58,7 +65,7 @@ function CommandPalette({ onClose }: CommandPaletteProps) {
     return () => {
       cancelled = true;
     };
-  }, [loaded]);
+  }, [loaded, canSearchInvoices]);
 
   const commands = useMemo<Command[]>(() => {
     const go = (path: string) => () => {
@@ -67,7 +74,7 @@ function CommandPalette({ onClose }: CommandPaletteProps) {
     };
 
     const navCommands: Command[] = [
-      ...NAV_GROUPS.flatMap((group) =>
+      ...visibleNavGroups(can).flatMap((group) =>
         group.items.map((item) => ({
           id: `nav:${item.path}`,
           title: item.title,
@@ -80,7 +87,7 @@ function CommandPalette({ onClose }: CommandPaletteProps) {
           run: go(item.path),
         }))
       ),
-      ...SETTINGS_TABS.map((item) => ({
+      ...visibleSettingsTabs(can).map((item) => ({
         id: `nav:${item.path}`,
         title: `Settings · ${item.title}`,
         subtitle: item.description,
@@ -114,7 +121,7 @@ function CommandPalette({ onClose }: CommandPaletteProps) {
     }));
 
     return [...navCommands, ...invoiceCommands];
-  }, [invoices, navigate, onClose]);
+  }, [invoices, navigate, onClose, can]);
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();

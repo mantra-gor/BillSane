@@ -1,4 +1,4 @@
-import { ipcHandle } from "../util.js";
+import { ipcHandleAuthenticated, ipcHandleGuarded } from "./guard.js";
 import { getDbConfig, getDecryptedConfig, saveDbConfig } from "../db/configStore.js";
 import { getDbStatus, testCloudConnection } from "../db/connectionManager.js";
 import type { CloudConnectionInput, DbOperationResult } from "../db/types.js";
@@ -13,9 +13,11 @@ async function withStoredSecret(input: CloudConnectionInput): Promise<CloudConne
 }
 
 export function registerDbIpcHandlers(): void {
-  ipcHandle("db:getConfig", () => getDbConfig());
+  // Host, port and username are infrastructure detail a cashier has no reason
+  // to read, and the mode is what the whole business's data depends on.
+  ipcHandleGuarded("db:getConfig", ["settings:database"], () => getDbConfig());
 
-  ipcHandle("db:saveConfig", async (input): Promise<DbOperationResult> => {
+  ipcHandleGuarded("db:saveConfig", ["settings:database"], async (input): Promise<DbOperationResult> => {
     try {
       await saveDbConfig(input);
       return { ok: true };
@@ -24,7 +26,11 @@ export function registerDbIpcHandlers(): void {
     }
   });
 
-  ipcHandle("db:testConnection", async (input) => testCloudConnection(await withStoredSecret(input)));
+  ipcHandleGuarded("db:testConnection", ["settings:database"], async (input) =>
+    testCloudConnection(await withStoredSecret(input))
+  );
 
-  ipcHandle("db:getStatus", () => getDbStatus());
+  // Status is "is the app's data reachable right now", which anyone who has
+  // just failed to save something deserves to be able to see.
+  ipcHandleAuthenticated("db:getStatus", () => getDbStatus());
 }

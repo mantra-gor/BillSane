@@ -56,7 +56,7 @@ export function normalizeName(name: string): string {
  * catalog would display whichever spelling happened to be typed last, spurious
  * double space and all.
  */
-function displayName(name: string): string {
+export function displayName(name: string): string {
   return name.trim().replace(/\s+/g, " ");
 }
 

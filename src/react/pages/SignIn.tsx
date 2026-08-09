@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { useNavigate } from "react-router";
-import { FiArrowRight, FiEye, FiEyeOff, FiLock, FiMail } from "react-icons/fi";
+import { FiAlertCircle, FiArrowRight, FiEye, FiEyeOff, FiLock, FiMail } from "react-icons/fi";
 import Button from "../components/ui/elements/Button";
 import Field from "../components/ui/elements/Field";
 import Input from "../components/ui/elements/Input";
+import { useAuth } from "../auth/authContext";
 import { emailValidation } from "../utils/validators";
 
 interface SignInValues {
@@ -14,8 +14,11 @@ interface SignInValues {
 }
 
 function SignIn() {
-  const navigate = useNavigate();
+  const { signIn } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
+  // Kept out of react-hook-form: it isn't about a field, it's the answer the
+  // main process gave, and it has to survive until the next submit.
+  const [failure, setFailure] = useState<string | null>(null);
 
   const {
     register,
@@ -25,9 +28,16 @@ function SignIn() {
     defaultValues: { email: "", password: "", remember: true },
   });
 
-  const onSubmit = () => {
-    localStorage.setItem("isUserLoggedIn", "true");
-    navigate("/dashboard");
+  const onSubmit = async (values: SignInValues) => {
+    setFailure(null);
+    try {
+      // No navigate() — the session state changes, and AuthRoute redirects off
+      // this screen on the next render. One source of truth for where "in"
+      // goes, shared with the ⌘K palette and every other entry point.
+      await signIn(values);
+    } catch (err) {
+      setFailure(err instanceof Error ? err.message : String(err));
+    }
   };
 
   return (
@@ -44,6 +54,15 @@ function SignIn() {
         onSubmit={handleSubmit(onSubmit)}
         noValidate
         className="mt-9 space-y-4">
+        {failure && (
+          <p
+            role="alert"
+            className="flex items-start gap-2 rounded-xl border border-danger-border bg-danger-soft px-3.5 py-3 text-[13px] font-medium text-danger-ink">
+            <FiAlertCircle size={15} className="mt-px shrink-0" />
+            {failure}
+          </p>
+        )}
+
         <Field
           label="Email"
           htmlFor="email"
@@ -81,18 +100,12 @@ function SignIn() {
                 {showPassword ? <FiEyeOff size={15} /> : <FiEye size={15} />}
               </button>
             }
-            {...register("password", {
-              required: "Password is required",
-              minLength: {
-                value: 8,
-                message: "Password must be at least 8 characters long",
-              },
-            })}
+            {...register("password", { required: "Password is required" })}
           />
         </Field>
 
-        <div className="flex items-center justify-between pt-1">
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-ink-soft">
+        <div className="pt-1">
+          <label className="flex w-fit cursor-pointer items-center gap-2 text-sm text-ink-soft">
             <input
               type="checkbox"
               className="h-4 w-4 cursor-pointer accent-munsell_blue"
@@ -100,11 +113,6 @@ function SignIn() {
             />
             Keep me signed in
           </label>
-          <button
-            type="button"
-            className="cursor-pointer text-sm font-medium text-munsell_blue transition-colors hover:text-munsell_blue-700">
-            Forgot password?
-          </button>
         </div>
 
         <Button
@@ -118,14 +126,11 @@ function SignIn() {
         </Button>
       </form>
 
+      {/* Honest rather than a dead link: BillSane runs on this machine, so there
+          is no reset email to send — an administrator issues a new password
+          from Settings → Users. */}
       <p className="mt-8 text-center text-sm text-ink-muted">
-        New to BillSane?{" "}
-        <button
-          type="button"
-          onClick={() => navigate("/sign-up")}
-          className="cursor-pointer font-semibold text-munsell_blue transition-colors hover:text-munsell_blue-700">
-          Create an account
-        </button>
+        Forgotten your password? Ask an administrator to set a new one for you.
       </p>
     </div>
   );

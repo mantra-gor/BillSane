@@ -27,6 +27,7 @@ import StatTile from "../components/ui/elements/StatTile";
 import { SkeletonRows, SkeletonStat } from "../components/ui/elements/Skeleton";
 import { useToast } from "../components/ui/feedback/toastContext";
 import { formatINR } from "../utils/format";
+import { useAuth } from "../auth/authContext";
 import {
   deleteInvoice,
   getInvoices,
@@ -83,6 +84,7 @@ function RowAction({
 function Sales() {
   const navigate = useNavigate();
   const toast = useToast();
+  const canDelete = useAuth().can("invoice:delete");
   const [invoices, setInvoices] = useState<SavedInvoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -265,7 +267,7 @@ function Sales() {
     {
       id: "actions",
       name: "",
-      width: "96px",
+      width: canDelete ? "96px" : "60px",
       cell: (row: SavedInvoice) => (
         <div className="flex items-center gap-0.5">
           <RowAction
@@ -273,12 +275,16 @@ function Sales() {
             label={`View invoice ${row.invoiceNo}`}
             onClick={() => navigate(`/invoice/view/${row.id}`)}
           />
-          <RowAction
-            icon={FiTrash2}
-            danger
-            label={`Delete invoice ${row.invoiceNo}`}
-            onClick={() => setPendingDelete(row)}
-          />
+          {/* Cancelling a sale returns its stock, so it is its own permission —
+              plenty of roles read the ledger without being able to unwind it. */}
+          {canDelete && (
+            <RowAction
+              icon={FiTrash2}
+              danger
+              label={`Delete invoice ${row.invoiceNo}`}
+              onClick={() => setPendingDelete(row)}
+            />
+          )}
         </div>
       ),
     },
