@@ -4,14 +4,17 @@ import { useToast } from "../../components/ui/feedback/toastContext";
 
 const COLLAPSE_KEY = "sidebarCollapsed";
 
-const PALETTE = [
-  { name: "Prussian Blue", role: "Primary actions, shell", hex: "#053247" },
-  { name: "Munsell Blue", role: "Accent, focus, selection", hex: "#298E9E" },
-  { name: "Ink", role: "Body text", hex: "#0C2231" },
-  { name: "Canvas", role: "App background", hex: "#F1F5F9" },
-  { name: "Success", role: "Positive states", hex: "#0E9F6E" },
-  { name: "Danger", role: "Destructive states", hex: "#DC2B2B" },
-];
+// Commented out alongside the "Brand palette" card below — TypeScript's
+// noUnusedLocals fails the build on the orphaned constant otherwise. Uncomment
+// both together to bring the card back.
+// const PALETTE = [
+//   { name: "Prussian Blue", role: "Primary actions, shell", hex: "#053247" },
+//   { name: "Munsell Blue", role: "Accent, focus, selection", hex: "#298E9E" },
+//   { name: "Ink", role: "Body text", hex: "#0C2231" },
+//   { name: "Canvas", role: "App background", hex: "#F1F5F9" },
+//   { name: "Success", role: "Positive states", hex: "#0E9F6E" },
+//   { name: "Danger", role: "Destructive states", hex: "#DC2B2B" },
+// ];
 
 function Toggle({
   checked,
@@ -47,9 +50,17 @@ function Toggle({
         className={`relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition-colors duration-200 ${
           disabled ? "cursor-not-allowed" : "cursor-pointer"
         } ${checked ? "bg-munsell_blue" : "bg-surface-sunken"}`}>
+        {/*
+          `left-0.5` is load-bearing: without a left, an absolutely positioned
+          knob falls back to its static position, and a button's centred text
+          alignment puts that at the middle of the track (22px) — so the offsets
+          below were being added to the midpoint and the knob rode out past the
+          right edge. Anchored at 2px, the travel is the track minus the knob
+          minus both margins: 44 - 20 - 2 - 2 = 20px.
+        */}
         <span
-          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow-xs transition-transform duration-200 ease-snap ${
-            checked ? "translate-x-[22px]" : "translate-x-0.5"
+          className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-xs transition-transform duration-200 ease-snap ${
+            checked ? "translate-x-5" : "translate-x-0"
           }`}
         />
       </button>
@@ -83,7 +94,7 @@ function Appearance() {
         />
       </Card>
 
-      <Card
+      {/* <Card
         title="Brand palette"
         subtitle="The tokens every screen is built from.">
         <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -109,7 +120,7 @@ function Appearance() {
             </li>
           ))}
         </ul>
-      </Card>
+      </Card> */}
     </div>
   );
 }
