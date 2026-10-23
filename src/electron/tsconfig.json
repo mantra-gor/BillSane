@@ -8,5 +8,7 @@
     "outDir": "../../dist-electron",
     "skipLibCheck": true,
     "types": ["../../types"]
-  }
+  },
+  // Tests live next to the code they cover but must never reach dist-electron.
+  "exclude": ["**/*.test.ts"]
 }
